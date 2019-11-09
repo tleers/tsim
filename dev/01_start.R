@@ -32,8 +32,8 @@ usethis::use_code_of_conduct()
 usethis::use_lifecycle_badge( "Experimental" )
 
 usethis::use_news_md( open = FALSE )
-usethis::use_git()
-
+#usethis::use_git()
+usethis::use_github()
 ## 1.3 - Add a data-raw folder
 ## 
 ## If you have data in your package
