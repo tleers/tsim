@@ -15,7 +15,7 @@ golem::fill_desc(
   author_first_name = "Tim", # Your First Name
   author_last_name = "Leers",  # Your Last Name
   author_email = "mail@timleers.com",      # Your Email
-  repo_url = NULL # The (optional) URL of the GitHub Repo
+  repo_url = 'https://github.com/tleers/tsim' # The (optional) URL of the GitHub Repo
 )     
 
 ## Use this desc to set {golem} options
