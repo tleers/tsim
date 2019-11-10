@@ -1,0 +1,46 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch master
+# Your branch is up to date with 'origin/master'.
+#
+# Changes to be committed:
+#	modified:   .Rbuildignore
+#	modified:   .gitignore
+#	deleted:    CODE_OF_CONDUCT.md
+#	modified:   DESCRIPTION
+#	deleted:    Dockerfile
+#	deleted:    NAMESPACE
+#	deleted:    NEWS.md
+#	modified:   R/app_ui.R
+#	new file:   R/golem_utils_server.R
+#	new file:   R/golem_utils_ui.R
+#	modified:   README.Rmd
+#	new file:   data-raw/Bringmann2016.R
+#	new file:   data-raw/alt_data95.R
+#	new file:   data-raw/elise_esm14.R
+#	new file:   data-raw/esmdata.R
+#	new file:   data-raw/sim_var.R
+#	renamed:    input/alt_data95.csv -> data/alt_data95/alt_data95.csv
+#	renamed:    input/ELISE ESM14.csv -> data/elise_esm14/ELISE ESM14.csv
+#	renamed:    input/ESMdata.csv -> data/esmdata/ESMdata.csv
+#	renamed:    input/simulated_var.csv -> data/simvar/simulated_var.csv
+#	modified:   dev/01_start.R
+#	modified:   dev/02_dev.R
+#	deleted:    dev/R/mod_my_first_module.R
+#	deleted:    dev/R/mod_my_other_module.R
+#	deleted:    input/Data95.csv
+#	deleted:    input/MindMaastricht.csv
+#	deleted:    input/MindMaastrichtID.csv
+#	deleted:    input/createData.m
+#	deleted:    input/journal.pone.0060188.s004.TXT
+#	deleted:    input/semiUsefull.mat
+#	deleted:    input/usefull.mat
+#	modified:   inst/app/www/favicon.ico
+#	deleted:    man/extractResiduals.Rd
+#	deleted:    man/mod_my_first_module.Rd
+#	deleted:    man/mod_my_other_module.Rd
+#	deleted:    man/run_app.Rd
+#	new file:   tests/testthat/test-golem-recommended.R
+#
