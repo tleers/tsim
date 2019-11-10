@@ -2,7 +2,7 @@ Package: tsim
 Title: Timeseries Simulation-aided Analysis
 Version: 0.0.0.9000
 Authors@R: person('Tim', 'Leers', email = 'mail@timleers.com', role = c('cre', 'aut'))
-Description: PKG_DESC.
+Description: Lorem Ipsum
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

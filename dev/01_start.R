@@ -11,7 +11,7 @@
 golem::fill_desc(
   pkg_name = "tsim", # The Name of the package containing the App 
   pkg_title = "Timeseries Simulation-aided Analysis", # The Title of the package containing the App 
-  pkg_description = "PKG_DESC.", # The Description of the package containing the App 
+  pkg_description = "Lorem Ipsum", # The Description of the package containing the App 
   author_first_name = "Tim", # Your First Name
   author_last_name = "Leers",  # Your Last Name
   author_email = "mail@timleers.com",      # Your Email
@@ -32,8 +32,8 @@ usethis::use_code_of_conduct()
 usethis::use_lifecycle_badge( "Experimental" )
 
 usethis::use_news_md( open = FALSE )
-#usethis::use_git()
-usethis::use_github()
+usethis::use_git()
+#usethis::use_github()
 ## 1.3 - Add a data-raw folder
 ## 
 ## If you have data in your package
