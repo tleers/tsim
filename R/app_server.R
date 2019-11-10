@@ -1,8 +1,4 @@
-# Load functions & datasets ------------------
-#source('func.R')
-# Server -----------------------------------------------------------------------
 app_server <- function(input, output, session) {
-
   # Load packages --------------------------------------------------------------------
   #set.seed('1')
   #initiation of packages thanks to https://gist.github.com/benmarwick/5054846
