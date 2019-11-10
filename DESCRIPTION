@@ -2,7 +2,7 @@ Package: tsim
 Title: Timeseries Simulation-aided Analysis
 Version: 0.0.0.9000
 Authors@R: person('Tim', 'Leers', email = 'mail@timleers.com', role = c('cre', 'aut'))
-Description: Lorem Ipsum
+Description: This application does timeseries stuff. Use it.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -10,7 +10,12 @@ Imports:
     shiny,
     golem,
     shinydashboard,
-    plotly
+    plotly,
+    processx,
+    attempt,
+    DT,
+    glue,
+    htmltools
 RoxygenNote: 6.1.1
 Suggests: 
     testthat (>= 2.1.0),

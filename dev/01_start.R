@@ -11,7 +11,7 @@
 golem::fill_desc(
   pkg_name = "tsim", # The Name of the package containing the App 
   pkg_title = "Timeseries Simulation-aided Analysis", # The Title of the package containing the App 
-  pkg_description = "Lorem Ipsum", # The Description of the package containing the App 
+  pkg_description = "This application does timeseries stuff. Use it.", # The Description of the package containing the App 
   author_first_name = "Tim", # Your First Name
   author_last_name = "Leers",  # Your Last Name
   author_email = "mail@timleers.com",      # Your Email
@@ -38,6 +38,10 @@ usethis::use_git()
 ## 
 ## If you have data in your package
 usethis::use_data_raw( name = "Bringmann2016", open = FALSE ) 
+usethis::use_data_raw( name = "alt_data95", open = FALSE ) 
+usethis::use_data_raw( name = "elise_esm14", open = FALSE ) 
+usethis::use_data_raw( name = "sim_var", open = FALSE ) 
+usethis::use_data_raw( name = "esmdata", open = FALSE ) 
 
 ## 1.4 - Init Tests
 ## 
@@ -57,7 +61,7 @@ golem::use_favicon() # path = "path/to/ico". Can be an online file.
 
 # Add helper functions 
 golem::use_utils_ui()
-golem::use_utils_server(path="inst/app/www/favico.ico")
+golem::use_utils_server()
 
 # You're now set! 
 # go to dev/02_dev.R

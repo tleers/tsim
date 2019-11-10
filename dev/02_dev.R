@@ -32,13 +32,13 @@ golem::add_css_file( "custom" )
 
 ## 3.1 Vignette
 usethis::use_vignette("tsim")
-devtools::build_vignettes()
+devtools::build_vignettes() #crashes right now?
 
 ## 3.2 Code coverage
 ## You'll need GitHub there
 usethis::use_github()
-usethis::use_travis()
-usethis::use_appveyor()
+# usethis::use_travis()
+# usethis::use_appveyor()
 
 # You're now set! 
 # go to dev/03_deploy.R
