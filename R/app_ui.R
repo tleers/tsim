@@ -599,60 +599,60 @@ golem_add_external_resources <- function(){
     'www', system.file('app/www', package = 'tsim')
   )
   
-  # # Load packages --------------------------------------------------------------------
-  # #set.seed('1')
-  # #initiation of packages thanks to https://gist.github.com/benmarwick/5054846
-  # rm(list = ls())
-  # list.of.packages = c(
-  #   "shinythemes",
-  #   "qgraph",
-  #   "shinydashboardPlus",
-  #   "Matrix",
-  #   "shinyWidgets",
-  #   "plotly", 
-  #   #"caret",
-  #   "dplyr", 
-  #   "data.table", 
-  #   "lubridate", 
-  #   "reshape2",
-  #   "DT", 
-  #   "knitr", 
-  #   "kableExtra",
-  #   "datasets",
-  #   "ggplot2",
-  #   "MASS",
-  #   "shiny",
-  #   "psych",
-  #   "stats",
-  #   "shinydashboard",
-  #   "reshape2",
-  #   "vars",
-  #   "xtable",
-  #   "Hmisc",
-  #   "reshape",
-  #   "rowr",
-  #   "grid",
-  #   "gridExtra",
-  #   "rlist",
-  #   "pracma",
-  #   "latex2exp",
-  #   "dplyr",
-  #   "rhandsontable",
-  #   "lubridate",
-  #   #"RSQLite",
-  #   "here",
-  #   "devtools",
-  #   #"sqldf",
-  #   #"DBI",
-  #   #"dbplyr",
-  #   "pool",
-  #   #"RMySQL",
-  #   "tidyverse",
-  #   "tibble",
-  #   "tsibble",
-  #   "rintrojs",
-  #   "shiny"
-  # )
+  # Load packages --------------------------------------------------------------------
+  #set.seed('1')
+  #initiation of packages thanks to https://gist.github.com/benmarwick/5054846
+  rm(list = ls())
+  list.of.packages = c(
+    "shinythemes",
+    "qgraph",
+    "shinydashboardPlus",
+    "Matrix",
+    "shinyWidgets",
+    "plotly",
+    #"caret",
+    "dplyr",
+    "data.table",
+    "lubridate",
+    "reshape2",
+    "DT",
+    "knitr",
+    "kableExtra",
+    "datasets",
+    "ggplot2",
+    "MASS",
+    "shiny",
+    "psych",
+    "stats",
+    "shinydashboard",
+    "reshape2",
+    "vars",
+    "xtable",
+    "Hmisc",
+    "reshape",
+    "rowr",
+    "grid",
+    "gridExtra",
+    "rlist",
+    "pracma",
+    "latex2exp",
+    "dplyr",
+    "rhandsontable",
+    "lubridate",
+    #"RSQLite",
+    "here",
+    "devtools",
+    #"sqldf",
+    #"DBI",
+    #"dbplyr",
+    "pool",
+    #"RMySQL",
+    "tidyverse",
+    "tibble",
+    "tsibble",
+    "rintrojs",
+    "shiny"
+  )
   
   new.packages <-
     list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
@@ -662,12 +662,12 @@ golem_add_external_resources <- function(){
   lapply(list.of.packages, library, character.only = T)
   
   
-  # tags$head(
-  #   golem::activate_js(),
-  #   golem::favicon()
-  #   # Add here all the external resources
-  #   # If you have a custom.css in the inst/app/www
-  #   # Or for example, you can add shinyalert::useShinyalert() here
-  #   #tags$link(rel="stylesheet", type="text/css", href="www/custom.css")
-  # )
+  tags$head(
+    golem::activate_js(),
+    golem::favicon()
+    # Add here all the external resources
+    # If you have a custom.css in the inst/app/www
+    # Or for example, you can add shinyalert::useShinyalert() here
+    #tags$link(rel="stylesheet", type="text/css", href="www/custom.css")
+  )
 }

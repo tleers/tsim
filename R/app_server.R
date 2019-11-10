@@ -1,5 +1,4 @@
 app_server <- function(input, output, session) {
-  library(shiny)
   #------------------------------ General functions -----------------------
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
                names(which(sapply(.GlobalEnv, is.matrix))),
