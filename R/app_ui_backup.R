@@ -4,6 +4,7 @@
 #'
 #' @import shiny
 #' @import shinydashboard
+#' @import DT
 app_uzi <- function(request) {
   tagList(
     golem_add_external_resources(),

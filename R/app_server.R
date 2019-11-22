@@ -1,9 +1,10 @@
 #' @import shiny
+#' @source('func.R')
+#' @source('datasets.R')
 
 app_server <- function(input, output, session) {
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
-               names(which(sapply(.GlobalEnv, is.matrix))),
-               names(which(sapply(.GlobalEnv, is.data.table)))
+               names(which(sapply(.GlobalEnv, is.matrix)))
   )
   ts_list <- c(names(which(sapply(.GlobalEnv, is.ts))))  #Use this for the shinyintrojs - currently not implemented
   
@@ -161,9 +162,9 @@ app_server <- function(input, output, session) {
                    icon("th")
                  ),
                  notificationItem(
-                   text = ifelse(is.null(loaded_dataset_id_value()) | loaded_dataset_id_value() == 'None',
+                   text = ifelse(is.null(input$current_dataset_id_value) | input$current_dataset_id_value == 'None',
                                  'No subject ID selected',
-                                 paste0('Subject ID selected: ', loaded_dataset_id_value())
+                                 paste0('Subject ID selected: ', input$current_dataset_id_value)
                    ),
                    icon("person")
                  )
@@ -420,8 +421,8 @@ app_server <- function(input, output, session) {
       "Number of timepoints:",
       if(is.null(input_df$df)){
         100
-      } else if(loaded_dataset_id_value() != 'None'){
-        nrow(input_df$df %>% dplyr::filter_at(id_var_number(), all_vars(.==loaded_dataset_id_value())))
+      } else if(input$current_dataset_id_value != 'None'){
+        nrow(input_df$df %>% dplyr::filter_at(id_var_number(), all_vars(.== input$current_dataset_id_value)))
       } else {
         nrow(input_df$df)
       },
@@ -1067,11 +1068,11 @@ app_server <- function(input, output, session) {
   
   filedata_updated <- reactive ({
     if(!is.null(input_df$df)){
-      if(id_var()!='None' && loaded_dataset_id_value() != 'None'){
+      if(id_var()!='None' && input$current_dataset_id_value != 'None'){
         filedata() %>% 
-          dplyr::filter_at(id_var_number(), all_vars(. == as.integer(loaded_dataset_id_value()))) %>% 
+          dplyr::filter_at(id_var_number(), all_vars(. == as.integer(input$current_dataset_id_value))) %>% 
           dplyr::select(-starts_with(id_var()))
-      } else if (id_var()!='None' && loaded_dataset_id_value() == 'None'){
+      } else if (id_var()!='None' &&     input$current_dataset_id_value == 'None'){
         filedata() %>% 
           dplyr::select(-starts_with(id_var()))
       } else {
@@ -1100,9 +1101,6 @@ app_server <- function(input, output, session) {
   })
   
   #currently loaded dataset id variable selected value
-  loaded_dataset_id_value <- reactive ({
-    input$current_dataset_id_value
-  })
   
   
   

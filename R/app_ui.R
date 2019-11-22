@@ -4,6 +4,9 @@
 #'
 #' @import shiny
 #' @import shinydashboard
+#' @import shinyWidgets
+#' @import plotly
+#' @import rhandsontable
 app_ui <- function(request) {
   tagList(
     golem_add_external_resources(),
