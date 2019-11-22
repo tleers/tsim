@@ -1,10 +1,13 @@
+#' @import shiny
+
 app_server <- function(input, output, session) {
-  #------------------------------ General functions -----------------------
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
                names(which(sapply(.GlobalEnv, is.matrix))),
                names(which(sapply(.GlobalEnv, is.data.table)))
   )
   ts_list <- c(names(which(sapply(.GlobalEnv, is.ts))))  #Use this for the shinyintrojs - currently not implemented
+  
+  #------------------------------ General functions -----------------------
   observeEvent(input$help,{
     introjs(session,
     )

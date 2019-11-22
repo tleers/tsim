@@ -15,7 +15,15 @@ Imports:
     attempt,
     DT,
     glue,
-    htmltools
+    htmltools,
+    pracma,
+    latex2exp,
+    shinyWidgets,
+    rlist,
+    rintrojs,
+    tibble,
+    rhandsontable,
+    dplyr
 RoxygenNote: 6.1.1
 Suggests: 
     testthat (>= 2.1.0),
