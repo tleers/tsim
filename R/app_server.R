@@ -3,12 +3,15 @@
 #' @source('datasets.R')
 
 app_server <- function(input, output, session) {
+  AR_METHOD <<- ' ols'
+  
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
                names(which(sapply(.GlobalEnv, is.matrix)))
   )
   ts_list <- c(names(which(sapply(.GlobalEnv, is.ts))))  #Use this for the shinyintrojs - currently not implemented
-  
   #------------------------------ General functions -----------------------
+  
+  #Use this for the shinyintrojs - currently not implemented
   observeEvent(input$help,{
     introjs(session,
     )
@@ -67,13 +70,13 @@ app_server <- function(input, output, session) {
         if(length(prev_table$data_frame_list) == 0){
           showModal(
             modalDialog(
-            title = "Warning - No Data Frame",
-            HTML(paste("There is no any data frame available",
-                       "to load in the R Global Environment", 
-                       sep = "<br/>")
-            ), 
-            size = "s"
-          ))
+              title = "Warning - No Data Frame",
+              HTML(paste("There is no any data frame available",
+                         "to load in the R Global Environment", 
+                         sep = "<br/>")
+              ), 
+              size = "s"
+            ))
           
           df_return_list <- NA
           # Set the condition for the load button
@@ -94,13 +97,13 @@ app_server <- function(input, output, session) {
         if(length(prev_table$time_series_list) == 0){
           showModal(
             modalDialog(
-            title = "Warning - No Time Series Data",
-            HTML(paste("There is no time series data available",
-                       "to load in the R Global Environment", 
-                       sep = "<br/>")
-            ), 
-            size = "s"
-          ))
+              title = "Warning - No Time Series Data",
+              HTML(paste("There is no time series data available",
+                         "to load in the R Global Environment", 
+                         sep = "<br/>")
+              ), 
+              size = "s"
+            ))
           
           df_return_list <- NA
           # Set the condition for the load button
@@ -152,19 +155,19 @@ app_server <- function(input, output, session) {
   })
   
   output$info_top <- renderUI({
-
+    
     dropdownMenu(type="notifications",
                  notificationItem(
                    text = ifelse(is.null(input$select_df),
-                    'No dataset loaded',
-                    paste0('Dataset loaded: ',input$select_df)
-                    ),
+                                 'No dataset loaded',
+                                 paste0('Dataset loaded: ',input$select_df)
+                   ),
                    icon("th")
                  ),
                  notificationItem(
-                   text = ifelse(is.null(input$current_dataset_id_value) | input$current_dataset_id_value == 'None',
+                   text = ifelse(is.null(loaded_dataset_id_value()) | loaded_dataset_id_value() == 'None',
                                  'No subject ID selected',
-                                 paste0('Subject ID selected: ', input$current_dataset_id_value)
+                                 paste0('Subject ID selected: ', loaded_dataset_id_value())
                    ),
                    icon("person")
                  )
@@ -178,7 +181,7 @@ app_server <- function(input, output, session) {
     if(input$data_source == "data_frame" & length(prev_table$data_frame_list) != 0){
       df_view <- NULL
       prev_table$df_name <- input$df_to_load
-      df_view <- get(input$df_to_load)
+      df_view <- get0(input$df_to_load)
       if(length(class(df_view)) > 1 & "data.frame" %in% class(df_view)){
         prev_table$class <- "data.frame"
         df_view <- as.data.frame(df_view)
@@ -241,7 +244,7 @@ app_server <- function(input, output, session) {
   #ignore errors here
   output$num_var <- renderValueBox({
     valueBox(
-      ifelse(is.ts(filedata_updated()),frequency(filedata_updated()), ncol(filedata_updated())),
+      ncol(filedata_updated()),
       ifelse(is.ts(filedata_updated()),"Frequency", "Variables"), 
       icon = icon("superscript"),
       color = "light-blue"
@@ -250,7 +253,7 @@ app_server <- function(input, output, session) {
   
   output$num_obs <- renderValueBox({
     valueBox(
-      ifelse(is.ts(filedata_updated()),length(filedata_updated()),nrow(filedata_updated())),
+      nrow(filedata_updated()),
       "Observations",
       icon = icon("list"),
       color = "maroon"
@@ -407,8 +410,10 @@ app_server <- function(input, output, session) {
       "Number of variables:",
       if(id_var()!='None' && !is.null(input_df$df)){
         ncol(input_df$df)-1
-      } else {
+      } else if (!is.null(input_df$df)){
         ncol(input_df$df)
+      } else {
+        3
       },
       min = 1,
       max = 150
@@ -421,8 +426,8 @@ app_server <- function(input, output, session) {
       "Number of timepoints:",
       if(is.null(input_df$df)){
         100
-      } else if(input$current_dataset_id_value != 'None'){
-        nrow(input_df$df %>% dplyr::filter_at(id_var_number(), all_vars(.== input$current_dataset_id_value)))
+      } else if(loaded_dataset_id_value() != 'None'){
+        nrow(input_df$df %>% dplyr::filter_at(id_var_number(), all_vars(.==loaded_dataset_id_value())))
       } else {
         nrow(input_df$df)
       },
@@ -1068,11 +1073,11 @@ app_server <- function(input, output, session) {
   
   filedata_updated <- reactive ({
     if(!is.null(input_df$df)){
-      if(id_var()!='None' && input$current_dataset_id_value != 'None'){
+      if(id_var()!='None' && loaded_dataset_id_value() != 'None'){
         filedata() %>% 
-          dplyr::filter_at(id_var_number(), all_vars(. == as.integer(input$current_dataset_id_value))) %>% 
+          dplyr::filter_at(id_var_number(), all_vars(. == as.integer(loaded_dataset_id_value()))) %>% 
           dplyr::select(-starts_with(id_var()))
-      } else if (id_var()!='None' &&     input$current_dataset_id_value == 'None'){
+      } else if (id_var()!='None' && loaded_dataset_id_value() == 'None'){
         filedata() %>% 
           dplyr::select(-starts_with(id_var()))
       } else {
@@ -1101,6 +1106,9 @@ app_server <- function(input, output, session) {
   })
   
   #currently loaded dataset id variable selected value
+  loaded_dataset_id_value <- reactive ({
+    input$current_dataset_id_value
+  })
   
   
   
@@ -1121,24 +1129,31 @@ app_server <- function(input, output, session) {
       rhandsontable(updated_phi())
     }
   })
+  
+  data_simulation_parameter_origin <- reactive ({
+    if(!is.null(input$select_simulation_parameter_origin)){
+      input$select_simulation_parameter_origin
+    } else {
+      NULL
+    }
+  }) 
   updated_inno <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+    if(!is.null(input_df$df) && (data_simulation_parameter_origin() != 'Manual')){
       inno_output <- estParams()[[3]]
-    } else if(input$select_simulation_parameter_origin == 'Manual'){
+    } else if(data_simulation_parameter_origin() == 'Manual'){
       inno_output<-computeSigma(r$nVar, r$innoVar,r$innoCovar)
       colnames(inno_output) <- c(paste("V",1:ncol(inno_output),sep="")) 
       rownames(inno_output) <- c(paste("V",1:nrow(inno_output),sep="")) 
     } else {
       inno_output <- NULL
-      
     }
     inno_output
   })
   
   updated_phi <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+    if(!is.null(input_df$df) && data_simulation_parameter_origin() != 'Manual'){
       phi_output <- estParams()[[2]]
-    } else if(input$select_simulation_parameter_origin == 'Manual'){
+    } else if(data_simulation_parameter_origin() == 'Manual'){
       phi_output<-computePhi(r$nVar, r$diagPhi, r$offdiagPhi)
       colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep="")) 
       rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep="")) 
@@ -1320,7 +1335,7 @@ app_server <- function(input, output, session) {
       return(NULL)
     }
     r$nModel2 <- input$selection2
-    cv$compute <- computeCV(r$data, r$nModel2, r$nTime, r$nVar)
+    cv$compute <- computeCV(r$data, r$nModel2, r$nTime, r$nVar, selectedLagNum())
   })
   
   current_k_fold_selected <- reactive({
@@ -1339,14 +1354,29 @@ app_server <- function(input, output, session) {
     input$select_stepsize_scaler
   })
   
+  tp_selected_model1 <- reactive({
+    input$tp_model1
+  })
+  
+  tp_selected_model2 <- reactive({
+    input$tp_model2
+  })
+  
+  tp_selected_error_metric <- reactive({
+    input$tp_error_metric
+  })
   
   output$select_stepsize_init_element <- renderUI({
-    numericInput(inputId='select_stepsize_init',label='Choose initial stepsize',min=1,max=1000,value=as.integer(r$nTime/10))
+    numericInput(inputId='select_stepsize_init',label='Choose initial stepsize',min=1,max=1000,value=as.integer(r$nTime/20))
   })
+  
   observeEvent(input$submitTPS, {
     if (is.null(r$data)) {
       return(NULL)
     }
+    
+    error_metric <- input$tp_error_metric
+    
     K <- current_k_fold_selected()
     max_iter <- current_max_iter_selected()
     stepsize_scaler <-current_stepsize_scaler_selected()
@@ -1357,12 +1387,17 @@ app_server <- function(input, output, session) {
       r$nTime,
       r$error,
       r$nModel1,
+      tp_selected_model1(),
+      tp_selected_model2(),
       current_phi_input(),
       current_inno_input(),
+      selectedLagNum(),
       K,
       max_iter,
       stepsize_init,
-      stepsize_scaler
+      stepsize_scaler,
+      loaded_dataset_index_variable(),
+      error_metric
     )
     
     #FUNCTION RETURNS NULL IF ERRORS OCCURR AND AS SUCH WE WILL NOT RENDER ANYTHING
@@ -1384,48 +1419,57 @@ app_server <- function(input, output, session) {
                                  '_.csv'))
         
       }
-
+      
       modl <- unique(fold_df$model)
       output$tp_last_1 <- renderUI({
-        valueBox(fold_df %>% 
-                   dplyr::filter(model==modl[1]) %>% 
-                   tail(n=1) %>% 
-                   dplyr::select(mse),
-                 paste0('Last MSE values of ',modl[1]),
+        valueBox(tp[[3]],
+                 # fold_df %>% 
+                 #          dplyr::filter(model==modl[1]) %>% 
+                 #          tail(n=1) %>% 
+                 #          dplyr::select(mse),
+                 paste0(toupper(error_metric),' of ', toupper(tp_selected_model1()),' at timepoint ',tp[[1]]),
                  icon = icon('hourglass'),
                  width=8,
                  color="red")
       })
       output$tp_last_2 <- renderUI({
-        valueBox(fold_df %>% 
-                   dplyr::filter(model==modl[2]) %>% 
-                   tail(n=1) %>% 
-                   dplyr::select(mse),
-                 paste0('Last MSE values of ',modl[2]),
+        valueBox(tp[[4]],
+                 # fold_df %>%
+                 #          dplyr::filter(model==modl[2]) %>%
+                 #          tail(n=1) %>%
+                 #          dplyr::select(mse),
+                 paste0(toupper(error_metric),' of ', toupper(tp_selected_model2()),' at timepoint ',tp[[1]]),
                  icon = icon('hourglass'),
                  width=8,color="green")
       })
       
-
+      output$tp_plots <- renderUI({
+        box(title = paste0('Plot of ',toupper(error_metric),' per fold and model'),
+            width=8,
+            plotlyOutput("mse_fold_plot")
+        )
+      })
+      
       if((fold_df %>% 
-         dplyr::filter(model==modl[2]) %>% 
-         dplyr::select(1) %>% 
-         nrow()
-        ) > 1
-        ){
-      output$mse_fold_plot <- renderPlotly({
-        p<- ggplot(fold_df,aes(x=tl,y=mse)) + 
-          geom_line(aes(linetype=fold,colour=model),size=.3) + 
-          geom_line(data=pldf,aes(x=tl,y=mse,colour=model),size=1.4) + 
-          scale_colour_manual(values = c("Blue", "Red")) +
-          theme_classic()
-        
-        ggplotly(p) %>% 
-          layout(autosize=TRUE)
+          dplyr::filter(model==modl[2]) %>% 
+          dplyr::select(1) %>% 
+          nrow()
+      ) > 1
+      ){
+        output$mse_fold_plot <- renderPlotly({
+          p<- ggplot(fold_df,aes(x=tl,y=mse)) + 
+            geom_line(aes(linetype=fold,colour=model),size=.3) + 
+            geom_line(data=pldf,aes(x=tl,y=mse,colour=model),size=.8) + 
+            geom_point(data=pldf,aes(x=tl,y=mse,colour=model),size=1.4) + 
+            scale_colour_manual(values = c("Blue", "Red")) +
+            theme_classic()
+          
+          ggplotly(p) %>% 
+            layout(autosize=TRUE)
           #layout(height = input$plotHeight, autosize=TRUE)
-        
-        #   geom_line(arl,aes(x=tl,y=arl))
-        # ggplot(res2, aes(x = res2_y, y = value, fill = variable)) + geom_line(aes(color = variable))
+          
+          #   geom_line(arl,aes(x=tl,y=arl))
+          # ggplot(res2, aes(x = res2_y, y = value, fill = variable)) + geom_line(aes(color = variable))
         })
       }
       # } else if (fold_df %>% 
@@ -1441,16 +1485,16 @@ app_server <- function(input, output, session) {
   
   observeEvent({input$submitModelComparison},{
     withProgress(message = 'Computing parameter accuracy', value = 0, {
-    acc$comparison <-
-      compareAccuracy(r$data,
-                      current_phi_input(),
-                      current_inno_input(),
-                      TRUE,
-                      selectedLagNum(),
-                      loaded_dataset_index_variable(),
-                      'ar',
-                      'var'
-      )
+      acc$comparison <-
+        compareAccuracy(r$data,
+                        current_phi_input(),
+                        current_inno_input(),
+                        TRUE,
+                        selectedLagNum(),
+                        loaded_dataset_index_variable(),
+                        'ar',
+                        'var'
+        )
     })
     cv$comparison <- compareCV(r$data, r$nVar, r$nTime, selectedLagNum(),loaded_dataset_index_variable())
     print("--------")
@@ -1498,13 +1542,13 @@ app_server <- function(input, output, session) {
     
     output$paramacc <- renderValueBox({
       if (!(is.null(r$nVar) | is.null(r$nModel2))){
-      valueBox(ifelse(r$nModel2=='ar',
-                      acc$comparison[[1]],
-                      acc$comparison[[2]]
-      ),"Average squared parameter error",
-      icon = icon("superscript"),
-      color="light-blue"
-      )
+        valueBox(ifelse(r$nModel2=='ar',
+                        acc$comparison[[1]],
+                        acc$comparison[[2]]
+        ),"Average squared parameter error",
+        icon = icon("superscript"),
+        color="light-blue"
+        )
       }
     })
     
@@ -1557,9 +1601,9 @@ app_server <- function(input, output, session) {
     selectInput("select_network_vars","Select variables for network analysis",
                 multiple=TRUE,
                 choices = c('None',names(input_df$df))
-                )
+    )
   })
-    
+  
   output$networkplot <- renderPlot({
     if(!is.null(selected_network_vars())){
       selected_cols <- selected_network_vars()
@@ -1574,6 +1618,6 @@ app_server <- function(input, output, session) {
     } else {
       return(NULL)
     }
-
+    
   })
 }
