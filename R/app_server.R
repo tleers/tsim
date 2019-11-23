@@ -1,9 +1,12 @@
 #' @import shiny
 #' @source('func.R')
 #' @source('datasets.R')
+#AR_METHOD <<- 'ols'
 
 app_server <- function(input, output, session) {
-  AR_METHOD <<- ' ols'
+  data(alt_data95)
+  data(sim_var)
+  #AR_METHOD <<- ' ols'
   
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
                names(which(sapply(.GlobalEnv, is.matrix)))

@@ -42,6 +42,8 @@ usethis::use_data_raw( name = "alt_data95", open = FALSE )
 usethis::use_data_raw( name = "elise_esm14", open = FALSE ) 
 usethis::use_data_raw( name = "sim_var", open = FALSE ) 
 usethis::use_data_raw( name = "esmdata", open = FALSE ) 
+usethis::use_data(alt_data95)
+usethis::use_data(sim_var)
 
 ## 1.4 - Init Tests
 ## 

@@ -36,7 +36,20 @@ Imports:
     MASS,
     psych,
     stats,
-    vars
+    vars,
+    Hmisc,
+    reshape,
+    rowr,
+    grid,
+    gridExtra,
+    shinydashboardPlus,
+    ggplot2,
+    xtable,
+    here,
+    devtools,
+    pool,
+    tsibble,
+    sparsevar
 RoxygenNote: 6.1.1
 Suggests: 
     testthat (>= 2.1.0),

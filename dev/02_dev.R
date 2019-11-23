@@ -8,7 +8,7 @@ install_package_list <- function(list.of.packages){
   if (length(new.packages) > 0) {
     install.packages(new.packages)
   }
-  lapply(list.of.packages, usethis::use_package, character.only = T)
+  lapply(list.of.packages, usethis::use_package)
 }
 # 2. All along your project
 
@@ -19,38 +19,56 @@ golem::add_module( name = "my_other_module" ) # Name of the module
 
 ## 2.2 Add dependencies
 
-usethis::use_package("shinythemes")
-usethis::use_package("qgraph")
-usethis::use_package("Matrix")
-usethis::use_package("data.table")
-usethis::use_package("lubridate")
-usethis::use_package("DT")
-usethis::use_package("reshape2")
-usethis::use_package("knitr")
-usethis::use_package("kableExtra")
-usethis::use_package("datasets")
-usethis::use_package("MASS")
-usethis::use_package("psych")
-usethis::use_package("stats")
-usethis::use_package("vars")
-usethis::use_package("Hmisc")
-usethis::use_package("reshape")
-usethis::use_package("rowr")
-usethis::use_package("grid")
-usethis::use_package("gridExtra")
-usethis::use_package("pracma")
-usethis::use_package("latex2exp")
-usethis::use_package("shinyWidgets")
-usethis::use_package("rlist")
-usethis::use_package("shinydashboard")
-usethis::use_package("plotly")
-usethis::use_package("rintrojs")
-usethis::use_package("tibble")
-#usethis::use_package("tidyverse")
-usethis::use_package("rhandsontable")
-usethis::use_package("dplyr")
-list.of.packages = c('')
-#install_package_list(list.of.packages)
+list.of.packages = c(
+  "shinythemes",
+  "qgraph",
+  "shinydashboardPlus",
+  "Matrix",
+  "shinyWidgets",
+  "plotly", 
+  #"caret",
+  "dplyr", 
+  "data.table", 
+  "lubridate", 
+  "reshape2",
+  "DT", 
+  "knitr", 
+  "kableExtra",
+  "datasets",
+  "ggplot2",
+  "MASS",
+  "psych",
+  "stats",
+  "shinydashboard",
+  "reshape2",
+  "vars",
+  "xtable",
+  "Hmisc",
+  "reshape",
+  "rowr",
+  "grid",
+  "gridExtra",
+  "rlist",
+  "pracma",
+  "latex2exp",
+  "dplyr",
+  "rhandsontable",
+  "lubridate",
+  #"RSQLite",
+  "here",
+  "devtools",
+  #"sqldf",
+  #"DBI",
+  #"dbplyr",
+  "pool",
+  #"RMySQL",
+  #"tidyverse",
+  "tibble",
+  "tsibble",
+  "rintrojs",
+  "sparsevar"
+)
+install_package_list(list.of.packages)
 
 
 
