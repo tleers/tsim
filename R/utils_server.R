@@ -130,7 +130,6 @@ extractInno <- function(model){
 #returns 
 ar.multivariate <- function(x,aic=TRUE,order.max=1,na.action=na.fail,demean=TRUE,intercept=demean,type='const',...){
   method<-AR_METHOD
-  print(AR_METHOD)
   arest<-NULL
   arest$resid <- matrix(0,ncol=ncol(x),nrow=nrow(x))
   for(i in 1:ncol(x)){
@@ -142,7 +141,7 @@ ar.multivariate <- function(x,aic=TRUE,order.max=1,na.action=na.fail,demean=TRUE
             order=order.max
     )
     arest$ar[i]<-tmp$ar
-    arest$var.pred[i]<-tmp$var.pred
+    arest$var.pred[i]<-as.vector(tmp$var.pred)
     arest$x.mean[i] <- tmp$x.mean
     arest$aic[i] <- head(tmp$aic,n=order.max)
     arest$partialacf[i] <- tmp$partialacf
@@ -239,28 +238,27 @@ symmetrize.matrix <- function(m) {
 
 validate_phi <- function(phi){
   if(any(is.na(phi))){
-    print("Coefficients are missing. This is often due to collinearity between variables.")
+    warning("Coefficient estimates are missing from input phi matrix.")
     return(FALSE)
   }
   if (is.complex(eigen(phi)$vectors[1])) {
     ifelse(is.complex(phi[1]),"Complex eigenvalues were detected - coefficient matrix is highly unstable","No complex eigenvalues detected.")
-    print("If you have estimated the coefficient matrix based on a dataset, the likely reason is collinearity. 
+    warning("Eigenvalues are complex. If you have estimated the coefficient matrix based on a dataset, the likely reason is collinearity. 
       Make sure that you define the exogeneous variables.
             Alternatively, use a model that reduces dimensions, remove variables manually, or change the values in the coefficient matrix manually.")
     return(FALSE)
   } 
   
   if(!stationarity(phi)){
-    print("Stationarity violated, choose different values for the coefficient matrix phi.")
+    warning("Stationarity violated, choose different values for the coefficient matrix phi.")
     return(FALSE)
   }
-  
   return(TRUE)
 }
 
 validate_inno <- function(inno){
   if(!is.positive.definite(inno)){
-    print("Innovation matrix is not positive definite.")
+    warning("Innovation matrix is not positive definite.")
     return(FALSE)
   }
   return(TRUE)
@@ -268,7 +266,7 @@ validate_inno <- function(inno){
 
 fix_inno <- function(inno){
   if(!is.positive.definite(abs(inno))){
-    print("Innovation matrix is not positive definite. Nearest positive definite matrix has been estimated and used.")
+    warning("Innovation matrix is not positive definite. Nearest positive definite matrix has been estimated and used.")
     # inno <- tryCatch(
     #   {
     #     matrix(Matrix::nearPD(inno)$mat,ncol(inno))
@@ -347,7 +345,7 @@ computeData <-
       innovations <- rnorm((nTime + nIntro) * nVar, 0, diag(inno))
     } else {
       Sigma <- inno
-      innovations <- MASS::mvrnorm(nTime + nIntro, rep(0, nVar), Sigma)
+      innovations <- rmvnorm(nTime+nIntro,rep(0,nVar),Sigma)
     }
     
     U <- matrix(innovations, nTime + nIntro, nVar)
@@ -588,7 +586,7 @@ extractError.arest <- function(model,pred,dat){
   sqr_resid <- (dat-pred[[1]])^2
   #sd <- apply(sqr_resid,2,sd)/sqrt(nrow(dat))
   sd <- sd(as.numeric(unlist(sqr_resid)))/sqrt(nrow(dat))
-  error<-list.append(error,sd)
+  error<-rlist::list.append(error,sd)
   names(error)[[7]] <- 'sd'
   return(error)
 }
@@ -604,7 +602,7 @@ extractError.varest <- function(model,pred,dat){
   sqr_resid <- (dat-pred)^2
   sd <- sd(unlist(sqr_resid))/sqrt(nrow(dat))
   
-  error<-list.append(error,sd)
+  error<-rlist::list.append(error,sd)
   names(error)[[7]] <- 'sd'
   
   return(error)
@@ -616,7 +614,12 @@ predict.arest <- function(model,data,n.ahead, ...){
   pred <- matrix(0,n.ahead,ncol(data))
   se <- matrix(0,n.ahead,ncol(data))
   for (i in 1:ncol(data)){
-    tmp<-stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead)
+    tmp<-try(suppressWarnings(stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead)))
+    #print(class(tmp))
+    if(class(tmp)!='list'){
+      tmp<-stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead,method='burg')
+      warning('predict.ar failed using ols - using burg instead')
+    }
     pred[,i] <- as.vector(tmp$pred)
     se[,i] <- as.vector(tmp$se)
   }
@@ -640,7 +643,7 @@ searchTP <- function(nVar,
                      stepsize_scaler = .1,
                      index_vars,
                      error_metric) {
-  
+  sig <- 2
   sampling_k <- 5
   if(!validate_phi(phi)){
     return(NULL)
@@ -674,68 +677,54 @@ searchTP <- function(nVar,
   dfc <- 1
   mse_df <- list()
   
-  info <- computeTP(nVar,
-                    nTime,
-                    error,
-                    gen_model,
-                    model1,
-                    model2,
-                    phi,
-                    inno,
-                    K,
-                    index_vars,
-                    lagNum,
-                    error_metric)
-  print(info)
-  if(any(is.null(info))){
-    print(paste0(c('Error occurred in the creation of simulation with timepoints: ',nTime
-    )
-    )
-    )
-    return(NULL)
-  }
-  
-  MSE_MOD1 <-  mean(na.omit(info[,1]))
-  MSE_MOD2 <- mean(na.omit(info[,2]))
-  
-  SE_MOD1 <- mean(na.omit(info[,3]))
-  SE_MOD2 <- mean(na.omit(info[,4]))
-  
-  mse_df[[dfc]] <- list(t,MSE_MOD1,MSE_MOD2,info[,1],info[,2],SE_MOD1,SE_MOD2,info[,3],info[,4])
-  dfc <- dfc + 1
-  
-  #find out if our timepoint of starting already has lower or higher AR-VAR MSE, then we wanna srch in opposite direction
-  if (MSE_MOD1 >= (round(MSE_MOD2,2))) {
-    stepsize <- -stepsize
-    #mod <- -1
-  }
-  t <- t + stepsize
   found2=FALSE
   error=FALSE
   backup_counter <- 0
   mod1_best <- 0
   mod2_best <- 0
   withProgress(message = 'Searching optimal timepoints', value = 0, {
+    #stop searching if we reach max iterations or if we reach a consensus of 10
     while (counter < max_iter && found2 == FALSE ){
+      #stop searching if we find a point at which model1 is better than model2 or vice versa, depending on mod value
       while (found == FALSE && error == FALSE && counter < max_iter ) {
-        
-        
-        for(l in 1:sampling_k){
-          info <- info +
-            computeTP(nVar,
-                      t,
-                      error,
-                      gen_model,
-                      model1,
-                      model2,
-                      phi,
-                      inno,
-                      K,
-                      index_vars,
-                      lagNum,
-                      error_metric)
-          
+        info <- NULL
+        #basically we want at least 2 tps per fold. otherwise we get dirty ol' crashes
+        if(t <= 15){
+          t <- 16
+          # stepsize <- stepsize * -1
+          # mod <- mod * -1
         }
+        for(l in 1:sampling_k){
+          if(is.null(info)){
+            info <- computeTP(nVar,
+                        t,
+                        error,
+                        gen_model,
+                        model1,
+                        model2,
+                        phi,
+                        inno,
+                        K,
+                        index_vars,
+                        lagNum,
+                        error_metric)
+            } else {
+            info <- info +
+              computeTP(nVar,
+                        t,
+                        error,
+                        gen_model,
+                        model1,
+                        model2,
+                        phi,
+                        inno,
+                        K,
+                        index_vars,
+                        lagNum,
+                        error_metric)
+            }
+        }
+        
         info <- info / sampling_k
         MSE_MOD1 <- mean(na.omit(info[,1]))
         MSE_MOD2 <- mean(na.omit(info[,2]))
@@ -753,7 +742,7 @@ searchTP <- function(nVar,
         dfc <- dfc + 1
         
         if(mod == 1){ # In this case, we are trying to find any point at which the MSE of model 1 exceeds that of model2
-          if (MSE_MOD1 >= round(MSE_MOD2,2)) {
+          if (round(MSE_MOD1,4) > round(MSE_MOD2,4)) {
             #if our previous best mse difference is smaller than our current mse difference, we have a new best point.
             if(mod2_best - mod1_best > MSE_MOD2-MSE_MOD1){
               mod2_best <- MSE_MOD2
@@ -761,30 +750,31 @@ searchTP <- function(nVar,
               backup <- t
             }
             found = TRUE
+            print('yeah')
           } else {
+            print(t)
+            print(stepsize)
+            print('-')
             t = t + stepsize
           }
-        } else if (MSE_MOD1 <= MSE_MOD2) {
-          found = TRUE
-        } else {
-          if(mod2_best - mod1_best > MSE_MOD2-MSE_MOD1){
-            mod2_best <- MSE_MOD2
-            mod1_best <- MSE_MOD1
-            backup <- t
-          }
-          t = t + stepsize
         }
+        # } else if (MSE_MOD1 <= MSE_MOD2) {
+        #   found = TRUE
+        # } else {
+        #   if(mod2_best - mod1_best > MSE_MOD2-MSE_MOD1){
+        #     mod2_best <- MSE_MOD2
+        #     mod1_best <- MSE_MOD1
+        #     backup <- t
+        #   }
+        #   t = t + stepsize
+        # }
         
-        #basically we want at least 2 tps per fold. otherwise we get dirty ol' crashes
-        if(t <= K*2){
-          stepsize <- -stepsize
-          mod <- mod * -1
-          t <- time + stepsize
-        }
+
         counter = counter + 1
         incProgress(1 / max_iter)
       }
       print(t)
+      print(stepsize)
       
       if (backup == t){
         backup_counter <- backup_counter + 1
@@ -795,11 +785,20 @@ searchTP <- function(nVar,
       if (backup_counter >= 10 && mod == 1) {
         found2 = TRUE
       } else {
-        mod <- -mod
+        mod <- mod
       }
       
+      
+      
       #mod <- mod * -1
-      stepsize <- as.integer(stepsize*mod*stepsize_scaler)
+      if(abs(stepsize) != 1 && abs(stepsize)*stepsize_scaler < 1){
+        stepsize <- round(stepsize*mod*stepsize_scaler)
+      } 
+      
+      if(stepsize <= 1){
+        stepsize <- 1
+      }
+      
       found = FALSE
     }
   })
@@ -811,7 +810,7 @@ searchTP <- function(nVar,
   if(found2 == FALSE | is.null(backup)){
     backup <- paste0('No result in ', max_iter,' iterations.')
   } else if (found == FALSE && !is.null(backup)){
-    t <- backup
+    t <- backup + stepsize
   }
   return(list(backup,convertmsedf(mse_df,K,model1,model2),mod1_best,mod2_best))
 }

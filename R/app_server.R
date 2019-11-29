@@ -1,17 +1,15 @@
 #' @import shiny
-#' @source('func.R')
-#' @source('datasets.R')
-#AR_METHOD <<- 'ols'
-
+#' @import ggplot2
+#' @import xtable
 app_server <- function(input, output, session) {
   data(alt_data95)
   data(sim_var)
-  #AR_METHOD <<- ' ols'
-  
+
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
                names(which(sapply(.GlobalEnv, is.matrix)))
   )
-  ts_list <- c(names(which(sapply(.GlobalEnv, is.ts))))  #Use this for the shinyintrojs - currently not implemented
+  ts_list <- c(names(which(sapply(.GlobalEnv, is.ts))))  
+  
   #------------------------------ General functions -----------------------
   
   #Use this for the shinyintrojs - currently not implemented
@@ -1414,16 +1412,24 @@ app_server <- function(input, output, session) {
         fold_df <- tp[[2]][[2]]
         #write.csv(fold_df,paste0('fold_df_',input$select_df,'_',now(),'_.csv'))
         write.csv(fold_df,paste0('fold_df_',input$select_df,
-                                 '_',day(today()),
-                                 '_',month(today()),
-                                 '_',hour(now()),
-                                 '_',minute(now()),
-                                 '_',second(now()),
+                                 '_',lubridate::day(lubridate::today()),
+                                 '_',lubridate::month(lubridate::today()),
+                                 '_',lubridate::hour(lubridate::now()),
+                                 '_',lubridate::minute(lubridate::now()),
+                                 '_',lubridate::second(lubridate::now()),
+                                 '_.csv'))
+        write.csv(pldf,paste0('avg_df',input$select_df,
+                                 '_',lubridate::day(lubridate::today()),
+                                 '_',lubridate::month(lubridate::today()),
+                                 '_',lubridate::hour(lubridate::now()),
+                                 '_',lubridate::minute(lubridate::now()),
+                                 '_',lubridate::second(lubridate::now()),
                                  '_.csv'))
         
       }
       
-      modl <- unique(fold_df$model)
+      modl <- list(tp_selected_model1(),
+      tp_selected_model2())
       output$tp_last_1 <- renderUI({
         valueBox(tp[[3]],
                  # fold_df %>% 
@@ -1449,9 +1455,20 @@ app_server <- function(input, output, session) {
       output$tp_plots <- renderUI({
         box(title = paste0('Plot of ',toupper(error_metric),' per fold and model'),
             width=8,
-            plotlyOutput("mse_fold_plot")
+            plotlyOutput("mse_fold_plot"),
+            selectInput(inputId="select_tp_distr_mse_fold_plot",
+                        label="Which time point",
+                        choices=c(unique(fold_df$tl)),
+                        multiple=TRUE,
+                        selectize=TRUE
+            ),
+            plotlyOutput("distr_mse_fold_plot"),
+            plotlyOutput("distr_mse_fold_plot2")
+            
         )
       })
+      
+      pldf<-pldf %>% group_by(tl) %>% mutate(count=n())
       
       if((fold_df %>% 
           dplyr::filter(model==modl[2]) %>% 
@@ -1459,13 +1476,20 @@ app_server <- function(input, output, session) {
           nrow()
       ) > 1
       ){
+        
         output$mse_fold_plot <- renderPlotly({
-          p<- ggplot(fold_df,aes(x=tl,y=mse)) + 
-            geom_line(aes(linetype=fold,colour=model),size=.3) + 
+          max_mse<-max(pldf$mse)
+          key <-row.names(fold_df)
+          p<- #ggplot(fold_df,aes(x=tl,y=mse,key=row.names(fold_df))) + 
+            ggplot(fold_df,aes(x=tl,y=mse)) + 
+            geom_line(aes(linetype=as.factor(fold),colour=model),size=.3) + 
             geom_line(data=pldf,aes(x=tl,y=mse,colour=model),size=.8) + 
-            geom_point(data=pldf,aes(x=tl,y=mse,colour=model),size=1.4) + 
+            #geom_point(data=pldf,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
+            #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
+            #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
             scale_colour_manual(values = c("Blue", "Red")) +
-            theme_classic()
+            theme_classic() 
+            
           
           ggplotly(p) %>% 
             layout(autosize=TRUE)
@@ -1474,6 +1498,59 @@ app_server <- function(input, output, session) {
           #   geom_line(arl,aes(x=tl,y=arl))
           # ggplot(res2, aes(x = res2_y, y = value, fill = variable)) + geom_line(aes(color = variable))
         })
+        
+        output$distr_mse_fold_plot <- renderPlotly({
+          if(!is.null(tp)){
+            dif <- fold_df %>%dplyr::filter(model==modl[1])-
+              fold_df %>%dplyr::filter(model==modl[2])
+            
+            dif_df <- fold_df %>% dplyr::filter(model==modl[1]) %>% 
+              dplyr::select(-starts_with('model'))
+            dif_df$mse <- dif$mse
+            
+            
+            sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
+            sel_dat$fold <- as.factor(sel_dat$fold)
+            colnames(sel_dat) <- c('model','tl','fold','mse')
+            p<- ggplot(sel_dat,aes(x=tl,y=mse)) + 
+              geom_point(aes(shape=as.factor(fold),colour=model),size=.5) + 
+              geom_point(data=dif_df,aes(shape=as.factor(fold)),colour='black',size=1) +
+              #geom_point(data=sel_dat,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
+              #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
+              #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
+              scale_colour_manual(values = c("Blue", "Red")) +
+              theme_classic() 
+            
+            ggplotly(p) %>% 
+              layout(autosize=TRUE)
+          }
+        
+          
+        })
+        
+        output$distr_mse_fold_plot2 <- renderPlotly({
+          if(!is.null(tp)){
+
+            sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
+            print(colnames(sel_dat))
+            sel_dat$fold <- as.factor(sel_dat$fold)
+            colnames(sel_dat) <- c('model','tl','fold','mse')
+            
+            sel_dat2 <- pldf %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
+            print(sel_dat2)
+            p<- ggplot(sel_dat,aes(x=mse)) +
+              geom_density(aes(linetype=as.factor(fold),colour=model),size=.3) +
+              geom_density(data=sel_dat2,aes(colour=model),size=1) +
+              scale_colour_manual(values = c("Blue", "Red")) +
+              theme_classic() 
+            
+            ggplotly(p) %>% 
+              layout(autosize=TRUE)
+          }
+          
+          
+        })
+        
       }
       # } else if (fold_df %>% 
       #            dplyr::filter(model==modl[2]) %>% 
@@ -1484,6 +1561,31 @@ app_server <- function(input, output, session) {
       
     }
   })
+  
+  current_selected_tp_distr_mse_fold_plot <- reactive({
+    input$select_tp_distr_mse_fold_plot
+  })
+  
+
+    # eventdata <- event_data("plotly_selected")
+    # if(!is.null(eventdata)){
+    #   sel_dat <- fold_df[eventData$key,]
+    # } else {
+    #   sel_dat <- NULL
+    # }
+    # 
+    # p<- ggplot(sel_dat,aes(x=tl,y=mse)) + 
+    #   geom_point(data=sel_dat,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
+    #   #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
+    #   #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
+    #   scale_colour_manual(values = c("Blue", "Red")) +
+    #   theme_classic() +
+    #   scale_y_continuous(limits = c(0, NA))
+    # 
+    # 
+    # ggplotly(p,tooltip="tooltip") %>% 
+    #   layout(autosize=TRUE)
+
   
   
   observeEvent({input$submitModelComparison},{
