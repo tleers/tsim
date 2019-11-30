@@ -23,11 +23,9 @@ A matrix of residuals, with columns being the variables.
 \description{
 \code{extractResiduals} returns the residuals in matrix-format from a fitted timeseries model.
 
-\code{extractResiduals} returns the residuals in matrix-format from a fitted timeseries model.
+\code{computeTP} returns the residuals in matrix-format from a fitted timeseries model.
 }
 \seealso{
-Other extractresiduals.ar: \code{\link{extractResiduals}}
-
 Other extractresiduals.ar: \code{\link{extractResiduals}}
 }
 \concept{extractresiduals.ar}

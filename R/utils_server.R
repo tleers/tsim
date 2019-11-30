@@ -79,55 +79,59 @@ computeSigma <- function(N, diagVal, offdiagVal) {
   return(Sigma)
 }
 
-extractPhi <- function(model,nvar){
-  if(as.logical(lapply(tolower(model$call),grepl,'var')) %>% any()){
-    nvar <- ncol(model$y)
-    VAR_coeff <- matrix(0, nvar, nvar)
-    for (i in 1:length(model$varresult)) {
-      VAR_coeff[i, ] <-
-        model$varresult[[i]]$coefficients[1:nvar]
-    }
-    phi <- VAR_coeff
-  } else if(as.logical(lapply(tolower(model$call),grepl,'ar.multivariate')) %>% any() | 
-            any(names(model)=='ar')==TRUE){
-    tmp <- matrix(0,length(model$ar),length(model$ar))
-    diag(tmp) <- model$ar
-    phi <- tmp
-  }
-  return(phi)
-}
-
-
-extractInno.varest <- function(model){
+extractPhi.varest <- function(model){
   nvar <- ncol(model$y)
   VAR_coeff <- matrix(0, nvar, nvar)
   for (i in 1:length(model$varresult)) {
     VAR_coeff[i, ] <-
-      summary(model$varresult[[i]])$coefficients[,2][1:nvar]
+      model$varresult[[i]]$coefficients[1:nvar]
   }
-  return(VAR_coeff)
+  phi <- VAR_coeff
+}
+extractPhi.arest <- function(model){
+  tmp <- matrix(0,length(model$ar),length(model$ar))
+  diag(tmp) <- model$ar
+  phi <- tmp
 }
 
+extractPhi.ar <- function(model){
+  model$ar
+}
+
+extractPhi <- function(model){
+  UseMethod('extractPhi',model)
+}
+
+extractInno.varest <- function(model){
+  nvar <- ncol(model$y)
+  resid_matrix <- matrix(0,length(model$varresult[[1]]$residuals),nvar)
+  VAR_coeff <- matrix(0, nvar, nvar)
+  for (i in 1:length(model$varresult)) {
+    resid_matrix[,i] <- model$varresult[[i]]$residuals
+  }
+  return(cov(standardize.popsd(na.omit(resid_matrix))))
+}
 
 extractInno.ar <- function(model){
-  l <- ncol(model$resid)
-  tmp <- matrix(0,ncol=l,nrow=l)
-  diag(tmp)<-model$asy.coef
-  return(tmp)
+  return(cov(standardize.popsd(na.omit(model$resid))))
 }
 
-
-extractInno.var <- extractInno.varest
 extractInno.arest <- extractInno.ar
 
+#' Parent function for computing the residual covariance matrix for a particular model
+#' 
+#' \code{extractInno} returns the residual covariance matrix of a timeseries model.
+#' @param model A fitted ts model, currently ar, arest (from ar.multivariate) and var are supported
+#' @return A covariance matrix of the residuals.
+#' @family extractInno.ar, extractInno.varest, extractInno.arest
 extractInno <- function(model){
-  m <- toupper(class(model))
+  #m <- toupper(class(model))
   UseMethod("extractInno",model)
 }
 
-#multivariate support for AR
-#handles a matrix column per column
-#returns 
+#' Multivariate version of AR
+#' 
+#' \code{ar.multivariate} returns arest model
 ar.multivariate <- function(x,aic=TRUE,order.max=1,na.action=na.fail,demean=TRUE,intercept=demean,type='const',...){
   method<-AR_METHOD
   arest<-NULL
@@ -160,7 +164,6 @@ ar.multivariate <- function(x,aic=TRUE,order.max=1,na.action=na.fail,demean=TRUE
 
 #Innovation matrix may still be wrong?
 #Based on a model, and a given dataset, fit the model and then extract both the residuals, Phi and Innovation matrix
-#
 computeParametersFromDataset <- function(model, dataset,lagNum,index_vars){
   dataset <- na.omit(dataset)
   tmod <- modelData(model,dataset,lagNum,index_vars)
@@ -168,13 +171,13 @@ computeParametersFromDataset <- function(model, dataset,lagNum,index_vars){
   nvar <- ncol(dataset)
   if(model=='ar'){
     resid <- tmod$resid
-    phi <- extractPhi(tmod,nvar)
+    phi <- extractPhi(tmod)
     inno <- extractInno(tmod)
   } else if (model == 'var'){
     resid<-tmod$y
     # descr<-c(tmod$order,tmod$)
     # names(descr)<-colnames
-    phi <- extractPhi(tmod,nvar)
+    phi <- extractPhi(tmod)
     inno <- extractInno(tmod)
     # resid<-matrix(tmod$resid,nrow(dataset),ncol(dataset))
     # # names(descr)<-colnames
@@ -200,7 +203,7 @@ modelData.varest <- function(model, dataset, lagNum, index_vars = NULL) {
   #       estimator='default',
   #       temporal='correlated')
   if(!is.null(index_vars)) {
-    VAR(dataset, type = "const", p = lagNum,exogen = dataset[,index_vars])
+    VAR(dataset, type = "const", p = lagNum, exogen = dataset[,index_vars])
   } else {
     VAR(dataset, type = "const", p = lagNum)
   }
@@ -280,88 +283,50 @@ fix_inno <- function(inno){
   # }
 }
 
-# 
-# phi <- current_phi_input()
-# inno <- current_inno_input()
-# model <- 'ar'
-# nTime <- 100
-# nVar <- ncol(phi)
-# error <- 0.1
-
-computeData_noval <-
-  function(nVar,
-           nTime,
-           error,
-           model,
-           phi,
-           inno) {
-    nIntro <- 2000
-    if (model == 'ar') {
-      #innovations <- rnorm((nTime + nIntro) * nVar, 0, diag(inno))
-      #innovations <- MASS::mvrnorm(nTime + nIntro, rep(0, nVar), inno)
-      innovations <- rmvnorm(nTime+nIntro,rep(0,nVar),inno)
-    } else {
-      #innovations <- rnorm((nTime + nIntro) * nVar, 0, diag(inno))
-      #innovations <- MASS::mvrnorm(nTime + nIntro, rep(0, nVar), inno)
-      innovations <- rmvnorm(nTime+nIntro,rep(0,nVar),inno)
-    }
-    
-    U <- matrix(innovations, nTime + nIntro, nVar)
-    simdata <- matrix(0, nTime + nIntro, nVar)
-    simdata[1, ] <- U[1, ]
-    #withProgress(message = 'Simulating data', value = 0, {
-    for (row in 2:(nTime + nIntro)) {
-      simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
-    }
-    randomError <- matrix(rnorm(nTime * nVar, 0, 1), nTime, nVar)
-    E <- sqrt(error) * randomError
-    Y <- simdata[-(1:nIntro), ]  + E
-    #})
-    return(Y)
-  }
-
 computeData <-
   function(nVar,
-           nTime,
+           time,
            error,
            model,
            phi,
-           inno) {
-    nIntro <- 2000
-    if(!validate_phi(phi)){
-      return(NULL)
-    }
+           inno,
+           val=TRUE,
+           burn=1000) {
     
-    if(!validate_inno(inno)){
-      inno<-fix_inno(inno)
-      if(is.null(inno)){
+    if(val){
+      if(!validate_phi(phi)){
         return(NULL)
       }
-    }
-    
-    if (model == 'ar') {
-      # inno[lower.tri(inno)]<-0
-      # inno[upper.tri(inno)]<-0
-      innovations <- rnorm((nTime + nIntro) * nVar, 0, diag(inno))
-    } else {
-      Sigma <- inno
-      innovations <- rmvnorm(nTime+nIntro,rep(0,nVar),Sigma)
-    }
-    
-    U <- matrix(innovations, nTime + nIntro, nVar)
-    simdata <- matrix(0, nTime + nIntro, nVar)
-    simdata[1, ] <- U[1, ]
-    withProgress(message = 'Simulating data', value = 0, {
-      for (row in 2:(nTime + nIntro)) {
-        simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
+      
+      if(!validate_inno(inno)){
+        inno<-fix_inno(inno)
+        if(is.null(inno)){
+          return(NULL)
+        }
       }
-      randomError <- matrix(rnorm(nTime * nVar, 0, 1), nTime, nVar)
-      E <- sqrt(error) * randomError
-      Y <- simdata[-(1:nIntro), ]  + E
-    })
+    }
+    
+    if(model %in% c('ar','var')){
+      #innovations <- rnorm((nTime + nIntro) * nVar, 0, diag(inno))
+      #innovations <- MASS::mvrnorm(nTime + nIntro, rep(0, nVar), inno)
+      innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
+    }
+    
+    U <- matrix(innovations, time + burn, nVar)
+    simdata <- matrix(0, time + burn, nVar)
+    simdata[1, ] <- U[1, ]
+    
+    #withProgress(message = paste0('Simulating ',model), value = 0, {
+    for (row in 2:(time + burn)) {
+      simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
+    }
+    randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
+    E <- sqrt(error) * randomError
+    Y <- simdata[-(1:burn), ]  + E
+    #})
+    
     return(Y)
   }
-
 
 compareAccuracy <- function(data,
                             phi,
@@ -501,10 +466,9 @@ extractResiduals <- function(model){
 
 #' Parent function for computing the MSE for a particular model
 #' 
-#' \code{extractResiduals} returns the residuals in matrix-format from a fitted timeseries model.
+#' \code{computeTP} returns the residuals in matrix-format from a fitted timeseries model.
 #' @param model A fitted ts model, currently ar, arest (from ar.multivariate) and var are supported
 #' @return A matrix of residuals, with columns being the variables.
-#' @family extractresiduals.ar  
 computeTP <- function(nVar,
                       time,
                       error,
@@ -518,14 +482,16 @@ computeTP <- function(nVar,
                       lagNum = 1,
                       error_metric = 'mse') {
   
-  print(paste0('timepoint: ',time))
+  #print(paste0('timepoint: ',time))
   #simulate data from the assumed data generating model
-  data <- computeData_noval(nVar,
-                            time,
-                            error,
-                            gen_model,
-                            phi,
-                            inno)
+  data <- computeData(nVar,
+                      time,
+                      error,
+                      gen_model,
+                      phi,
+                      inno,
+                      val=FALSE
+                      )
   
   #data <- standardize.popsd(data)
   CV <- as.numeric(factor(sort(rank(1:(
@@ -556,8 +522,8 @@ computeTP <- function(nVar,
                      DataTrain,
                      lagNum,
                      index_vars)
-    pred <- predict(mod,XTest,n.ahead=nrow(XTest))
-    error <- extractError(mod,pred,XTest)
+    pred <- altpredict(mod,XTest)
+    error <- computeError(mod,pred,XTest)
     
     error1[k] <- error[[error_metric]]
     se1[k] <- error[['sd']]
@@ -567,8 +533,8 @@ computeTP <- function(nVar,
                      DataTrain,
                      lagNum,
                      index_vars)
-    pred <- predict(mod,XTest,n.ahead=nrow(XTest))
-    error <- extractError(mod,pred,XTest)
+    pred <- altpredict(mod,XTest)
+    error <- computeError(mod,pred,XTest)
     
     error2[k] <- error[[error_metric]]
     se2[k] <- error[['sd']]
@@ -577,11 +543,11 @@ computeTP <- function(nVar,
   return(data.frame(cbind(error1,error2,se1,se2)))
 }
 
-extractError <- function(model,pred,dat){
-  UseMethod('extractError',model)
+computeError <- function(model,pred,dat){
+  UseMethod('computeError',model)
 }
 
-extractError.arest <- function(model,pred,dat){
+computeError.arest <- function(model,pred,dat){
   error <- pracma::rmserr(dat %>% unlist() %>% as.numeric(), pred[[1]] %>% as.numeric())
   sqr_resid <- (dat-pred[[1]])^2
   #sd <- apply(sqr_resid,2,sd)/sqrt(nrow(dat))
@@ -591,38 +557,56 @@ extractError.arest <- function(model,pred,dat){
   return(error)
 }
 
-extractError.varest <- function(model,pred,dat){
-  tmp <- NULL
-  for (i in 1:length(pred$fcst)){
-    tmp<-cbind(tmp,pred$fcst[[i]][,1])
-  }
-  pred<-tmp
-  error <- pracma::rmserr(dat %>% unlist() %>% as.numeric(), pred %>% as.vector())
-  
-  sqr_resid <- (dat-pred)^2
-  sd <- sd(unlist(sqr_resid))/sqrt(nrow(dat))
-  
-  error<-rlist::list.append(error,sd)
-  names(error)[[7]] <- 'sd'
-  
-  return(error)
-  
+computeError.varest <- computeError.arest
+
+altpredict <- function(model,data){
+  UseMethod('altpredict',model)
 }
 
-
-predict.arest <- function(model,data,n.ahead, ...){
-  pred <- matrix(0,n.ahead,ncol(data))
-  se <- matrix(0,n.ahead,ncol(data))
+altpredict.varest <- function(model,data){
+  pred <- matrix(0,nrow(data),ncol(data))
+  #se <- matrix(0,n.ahead,ncol(data))
+  se <- NULL
+  
+  data <- matrix(unlist(data),ncol=ncol(extractResiduals.var(model)))
   for (i in 1:ncol(data)){
-    tmp<-try(suppressWarnings(stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead)))
-    #print(class(tmp))
-    if(class(tmp)!='list'){
-      tmp<-stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead,method='burg')
-      warning('predict.ar failed using ols - using burg instead')
+    # tmp<-try(suppressWarnings(stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead)))
+    # #print(class(tmp))
+    # if(class(tmp)!='list'){
+    #   tmp<-stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead,method='burg')
+    #   warning('predict.ar failed using ols - using burg instead')
+    # }
+    #withProgress(message = 'Simulating data', value = 0, {
+    phi <- extractPhi(model)
+    pred[1,] <- data[1,]
+    for (row in 2:nrow(data)) {
+      pred[row, ] = phi %*% data[row-1,]
     }
-    pred[,i] <- as.vector(tmp$pred)
-    se[,i] <- as.vector(tmp$se)
+    #se[,i] <- as.vector(tmp$se)
   }
+  return(list(pred,se))
+}
+
+altpredict.arest <- function(model,data){
+  pred <- matrix(0,nrow(data),ncol(data))
+  #se <- matrix(0,n.ahead,ncol(data))
+  data <- matrix(unlist(data),ncol=ncol(model$resid))
+  for (i in 1:ncol(data)){
+    # tmp<-try(suppressWarnings(stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead)))
+    # #print(class(tmp))
+    # if(class(tmp)!='list'){
+    #   tmp<-stats:::predict.ar(model$fit_list[[i]],data[,i],n.ahead=n.ahead,method='burg')
+    #   warning('predict.ar failed using ols - using burg instead')
+    # }
+    #withProgress(message = 'Simulating data', value = 0, {
+    phi <- extractPhi(model)
+    pred[1,] <- data[1,]
+    for (row in 2:nrow(data)) {
+      pred[row, ] = phi %*% data[row-1,]
+    }
+    #se[,i] <- as.vector(tmp$se)
+  }
+  se <- NULL
   return(list(pred,se))
 }
 
