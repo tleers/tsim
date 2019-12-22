@@ -1,8 +1,6 @@
 #' @import shiny
 #' @import ggplot2
 #' @import xtable
-#' @import ggridges
-#' @import shinydashboardPlus
 app_server <- function(input, output, session) {
   
   observeEvent(input$browser,{
@@ -45,72 +43,35 @@ app_server <- function(input, output, session) {
                               var_summary = NULL,
                               names_list = NULL)
   
-  #------------------------------ SideBar Menu -----------------------
-  output$data_select_top <- renderUI({
-    selectizeInput(
-      'select_df', label = "Select active dataset", choices = input_df$names_list
-      #options = list(create = TRUE)
-    )
-  })
+  init_df <- reactiveValues(param_list=NULL)
   
+  
+  #------------------------------ SideBar Menu -----------------------
+ 
   output$menu <- renderMenu({
     sidebarMenu(
     id="tabs",
-    uiOutput('data_select_top'),
     menuItem("Data Management", tabName = "data", icon = icon("table"), startExpanded = TRUE,
              menuSubItem("Load dataset", tabName = "data1"),
              menuSubItem("Pre-processing", tabName = "data2"),
-             menuSubItem("Visualization",tabName="vis"),
-             conditionalPanel(
-               condition="input.tabs == 'vis'",
-               uiOutput("loaded_ds_list_vis"),
-               uiOutput("vis_plot_type"),
-               conditionalPanel(condition =  "output.loaded_table_flag == '1' && output.class_df_flag_vis == false && input.plot_type != 'cor' ",
-                                conditionalPanel(condition = "input.plot_type != 'density' && input.plot_type != 'box' && input.plot_type != 'hist'",
-                                                 uiOutput("vis_x"),
-                                                 uiOutput("vis_y")
-                                ),
-                                conditionalPanel(condition = "input.plot_type == 'density' || input.plot_type == 'hist' || input.plot_type == 'box'",
-                                                 uiOutput("vis_one_var")
-                                )
-               ),
-               conditionalPanel(condition = "input.plot_type == 'scatter' || input.plot_type == 'box'|| input.plot_type == 'hist' || input.plot_type == 'density'",
-                                box(width = 2,
-                                    uiOutput("vis_factor")),
-                                uiOutput("sim_data_vis")
-               )
-             )
+             menuSubItem("Visualization",tabName="vis")
     ),
     menuItem("Data Simulation", icon = icon("database"),tabName = "sim"),
     menuItem("Analysis", icon = icon("microscope"), tabName = "analysis",
              menuSubItem("Model Comparison", tabName = "modelcomparison"),
              menuSubItem("Timepoint Estimation", tabName="tpestimation")
     ),
-    menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis")
+    menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis"),
+    menuItem("FAQ",icon=icon("question-circle"),tabName="faq"),
+    selectizeInput(
+      'select_df', label = "Select active dataset", choices = input_df$names_list
+      #options = list(create = TRUE)
     )
-  })
-  
-  #-----------------------------Notification panel---------------
-  output$info_top <- renderUI({
     
-    dropdownMenu(type="notifications",
-                 notificationItem(
-                   text = ifelse(is.null(input$select_df),
-                                 'No dataset loaded',
-                                 paste0('Dataset loaded: ',input$select_df)
-                   ),
-                   icon("th")
-                 ),
-                 notificationItem(
-                   text = ifelse(is.null(loaded_dataset_id_value()) | loaded_dataset_id_value() == 'None',
-                                 'No subject ID selected',
-                                 paste0('Subject ID selected: ', loaded_dataset_id_value())
-                   ),
-                   icon("person")
-                 )
+   
+    
     )
   })
-  
   #------------------------------ Data Tab 1 - DT1 ---------------------------------------------###############################
   
   #------------------------------ DT1 summary boxes -------------------------------------
@@ -203,6 +164,8 @@ app_server <- function(input, output, session) {
     )
   }) 
   
+  
+  
   #------------------------------ DT1 Setting the csv file path------------------------------------- 
   observeEvent(input$file1,{
     output$load_flag <- reactive('0')
@@ -234,6 +197,27 @@ app_server <- function(input, output, session) {
                   choices = prev_table$inputs_list )
     }
   })
+  
+  output$info_top <- renderUI({
+    
+    dropdownMenu(type="notifications",
+                 notificationItem(
+                   text = ifelse(is.null(input$select_df),
+                                 'No dataset loaded',
+                                 paste0('Dataset loaded: ',input$select_df)
+                   ),
+                   icon("th")
+                 ),
+                 notificationItem(
+                   text = ifelse(is.null(loaded_dataset_id_value()) | loaded_dataset_id_value() == 'None',
+                                 'No subject ID selected',
+                                 paste0('Subject ID selected: ', loaded_dataset_id_value())
+                   ),
+                   icon("person")
+                 )
+    )
+  })
+  
   
   # Load the data according to the user selection  
   df_tbl_view <- reactive({
@@ -302,8 +286,6 @@ app_server <- function(input, output, session) {
                           ifelse(prev_table$class == "mts", "Multiple Time Series",
                                  ifelse(prev_table$class == "matrix", "Matrix", 
                                         prev_table$class ))))
-    
-    
     
     if(!name %in% input_df$data_name){
       input_df$data_name <- c(input_df$data_name, name)
@@ -395,7 +377,7 @@ app_server <- function(input, output, session) {
   output$num_var <- renderValueBox({
     valueBox(
       ncol(filedata_updated()),
-      "Variables", 
+      ifelse(is.ts(filedata_updated()),"Frequency", "Variables"), 
       icon = icon("superscript"),
       color = "light-blue"
     )
@@ -410,16 +392,44 @@ app_server <- function(input, output, session) {
     )
   })
 
-  observeEvent({
-    input_df$names_list
-  },{
-    output$id_variable <- renderUI({
-      selectInput("select_dataset_id_var", "Select the ID variable",
-                  choices = c('None',names(input_df$df))
-      )
-    })
-  })
   
+  #ID VAR
+  #SELECTINPUT
+  # output$id_variable <- renderUI({
+  #   selectInput("select_dataset_id_var", "Select the ID variable",
+  #               choices = c('None',names(input_df$df))
+  #   )
+  # })
+  # 
+  # #SAVE CURRENT SELECTED ID VAR FOR DATASET
+  # observeEvent({
+  #   input$select_dataset_id_var
+  # },{
+  #   print(input$select_dataset_id_var)
+  #   init_df$param_list[[paste0(input$select_df)]][['select_dataset_id_var']] <- input$select_dataset_id_var
+  # })
+  # 
+  # #update with last selected id var when changign dataset
+  # observeEvent({
+  #   input$select_df
+  # },{
+  #   if(!is.null(init_df$param_list[[input$select_df]][['select_dataset_id_var']])){
+  #     updateSelectInput(session,
+  #                       inputId='select_dataset_id_var',
+  #                       c('None',names(input_df$df)),
+  #                       selected=init_df$param_list[[input$select_df]][['select_dataset_id_var']])
+  #   } else {
+  #     NULL
+  #   }
+  # },ignoreInit=TRUE)
+
+  observeEvent({
+      input$select_df
+    },{
+        selectInput("select_dataset_id_var", "Select the ID variable",
+                    choices = c('None',names(input_df$df)))
+    })
+    
   observeEvent({
     input_df$names_list
   },{
@@ -473,7 +483,7 @@ app_server <- function(input, output, session) {
       "nTime",
       "Number of timepoints:",
       if(is.null(input_df$df)){
-        15
+        100
       } else if(loaded_dataset_id_value() != 'None'){
         nrow(input_df$df %>% dplyr::filter_at(id_var_number(), all_vars(.==loaded_dataset_id_value())))
       } else {
@@ -483,17 +493,17 @@ app_server <- function(input, output, session) {
       max = 10000
     )
   })
-  
-  output$simulation_parameter_origin <- renderUI({
-    selectInput(
-      "select_simulation_parameter_origin",
-      "Select parameter estimate source",
-      choices=c('Manual',
-                'Active dataset'),
-      selected=ifelse(!is.null(input_df$data_name),input_df$data_name,'Manual'),
-      multiple = FALSE
-    )
-  })
+  # output$simulation_parameter_origin <- renderUI({
+  #   selectInput(
+  #     "select_simulation_parameter_origin",
+  #     "Select parameter estimate source",
+  #     choices=c('Manual',
+  #               #input_df$names_list),
+  #               input$names_list),
+  #     selected=ifelse(!is.null(input_df$data_name),input_df$data_name,'Manual'),
+  #     multiple = FALSE
+  #   )
+  # })
   
   observeEvent(input$select_df, {
     if(!is.null(input$select_df)){
@@ -503,7 +513,7 @@ app_server <- function(input, output, session) {
       input_df$class <- input_df$df_class[[which(names(input_df$df_list) == input$select_df)]]
       uiOutput('data_tab2_table')
       
-      input_df$df <- (
+      active_df$df <- (
         input_df$df_list[[which(names(input_df$df_list) == input$select_df)]]
       )
       active_df$class <- input_df$df_class[[which(names(input_df$df_list) == input$select_df)]]
@@ -512,7 +522,7 @@ app_server <- function(input, output, session) {
       input_df$df <- NULL
       input_df$class <- NULL
       
-      input_df$df <- NULL
+      active_df$df <- NULL
       active_df$class <- NULL
       
       output$data_tab2_table <- NULL
@@ -645,7 +655,7 @@ app_server <- function(input, output, session) {
                      row.names(var_s) <- c("Number of Levels")
                      names(var_s) <- names(input_df$df)[r1]
                      factor.df <- group_by(input_df$df, get(names(input_df$df)[r1])) %>%
-                       summarise(count = dplyr::n())
+                       summarise(count = n())
                      names(factor.df) <- c(names(std_input_df), "Count")
                      p <- plot_ly(data = factor.df, name = "Levels",
                                   x =  ~ get(names(factor.df)[1]),
@@ -1127,16 +1137,16 @@ app_server <- function(input, output, session) {
   })
   
   filedata_updated <- reactive ({
-    if(!is.null(input_df$df)){
+    if(!is.null(active_df$df)){
       if(id_var()!='None' && loaded_dataset_id_value() != 'None'){
-        input_df$df %>% 
+        filedata() %>% 
           dplyr::filter_at(id_var_number(), all_vars(. == as.integer(loaded_dataset_id_value()))) %>% 
           dplyr::select(-starts_with(id_var()))
       } else if (id_var()!='None' && loaded_dataset_id_value() == 'None'){
-        input_df$df %>% 
+        filedata() %>% 
           dplyr::select(-starts_with(id_var()))
       } else {
-        input_df$df
+        filedata()
       }
     }
   })
@@ -1154,12 +1164,9 @@ app_server <- function(input, output, session) {
   loaded_dataset_index_variable <- reactive({
     dlist <- names(filedata_updated())
     ids <- NULL
-    if(!is.null(input$dataset_select_index_variable)){
-      for(i in 1:length(input$dataset_select_index_variable)){
-        ids[i] <- which(dlist == input$dataset_select_index_variable[i])
-      }
+    for(i in 1:length(input$dataset_select_index_variable)){
+      ids[i] <- which(dlist == input$dataset_select_index_variable[i])
     }
-
     ids
   })
   
@@ -1172,7 +1179,7 @@ app_server <- function(input, output, session) {
   
   #original df of currently loaded dataset
   filedata <- reactive({
-    input_df$df
+    active_df$df
   })
   
   #Simulation Tab Phi Matrix and Innovation Matrix
@@ -1513,47 +1520,22 @@ app_server <- function(input, output, session) {
       })
       
       output$tp_plots <- renderUI({
-        fluidRow(
-        boxPlus(
-          title = paste0(toupper(error_metric),' per fold'),
-          closable=TRUE,
-          width=NULL,
-          collapsible=TRUE,
-          plotlyOutput("mse_fold_plot")
-        ),
-        boxPlus(
-          title = paste0('Density plot of average ',toupper(error_metric),'per model across time points'),
-          closable=TRUE,
-          width=NULL,
-          collapsible=TRUE,
-          plotOutput("tp_3d_plot")
-          
-        ),
-        selectInput(inputId="select_tp_distr_mse_fold_plot",
-                    label="Which time point",
-                    choices=c(unique(fold_df$tl)),
-                    multiple=TRUE,
-                    selectize=TRUE
-        ),
-        boxPlus(
-          title = paste0('Plot of average ',toupper(error_metric),' difference across time points'),
-          closable=TRUE,
-          width=NULL,
-          collapsible=TRUE,
-          plotlyOutput("distr_mse_fold_plot")
-          
-        ),
-        boxPlus(
-          title = paste0('Density plot of average and fold errors for time points: ', input$select_tp_distr_mse_fold_plot),
-          closable=TRUE,
-          width=NULL,
-          collapsible=TRUE,
-          plotlyOutput("distr_mse_fold_plot2")
-        )
+        box(title = paste0('Plot of ',toupper(error_metric),' per fold and model'),
+            width=8,
+            plotlyOutput("mse_fold_plot"),
+            selectInput(inputId="select_tp_distr_mse_fold_plot",
+                        label="Which time point",
+                        choices=c(unique(fold_df$tl)),
+                        multiple=TRUE,
+                        selectize=TRUE
+            ),
+            plotlyOutput("distr_mse_fold_plot"),
+            plotlyOutput("distr_mse_fold_plot2")
+            
         )
       })
       
-      pldf<-pldf %>% group_by(tl) %>% mutate(count=dplyr::n())
+      pldf<-pldf %>% group_by(tl) %>% mutate(count=n())
       
       if((fold_df %>% 
           dplyr::filter(model==modl[2]) %>% 
@@ -1613,52 +1595,6 @@ app_server <- function(input, output, session) {
           
         })
         
-        output$tp_3d_plot <- renderPlot({
-          tbl_tmp <- table(pldf$tl)
-          pldf_binned <- pldf %>% dplyr::arrange(tl)
-          tmp <- NULL
-          for (i in 1:nrow(tbl_tmp)){
-            if(tbl_tmp[i] < 5){
-              tmp<-rbind(tmp,as.integer(names(tbl_tmp)[i]))
-            } else if (!is.null(tmp)) {
-              if(length(tmp)>1){
-                tmp_str <- paste0(min(tmp),'-',max(tmp))
-                
-              } else {
-                tmp_str <- paste0(tmp)
-              }
-              pldf_binned[pldf_binned$tl %in% tmp,]$tl <- tmp_str
-              tmp <- NULL
-            }
-          }
-          tmp <- table(pldf_binned$tl)
-          tmp<-data.frame(cbind(names(tmp),sapply(data.frame(tmp)$Freq,as.character)))
-          colnames(tmp)<-c('tl','freq')
-          tmp$freq <- tmp$freq %>% as.character %>% as.numeric
-          tmp <- tmp %>% filter(freq>10)
-          pldf_binned <- pldf_binned %>% dplyr::filter(tl %in% tmp$tl)
-          
-          p<- ggplot(pldf_binned,aes(x=mse,y=as.factor(tl),fill=model)) +
-            geom_density_ridges(aes(fill=model,point_color=model,point_fill=model),
-                                alpha=.5,
-                                jittered_points=TRUE,
-                                point_shape = "|",
-                                point_size=3,
-                                position = position_points_jitter(height=0),
-                                quantile_lines=TRUE,
-                                scale=1.2) +
-            ggridges::scale_discrete_manual(aesthetics = "point_color", values = c("darkcyan","deeppink")) +
-            ggridges::scale_discrete_manual(aesthetics = "point_fill", values = c("Cyan","Pink")) +
-            ggridges::scale_discrete_manual(aesthetics = "point_shape", values = c(22, 24))+
-            scale_colour_manual(values = c("Black", "Black")) +
-            scale_fill_cyclical(values= c("Cyan","Pink")) +
-            scale_y_discrete(name="Number of observations") +
-            guides(fill=guide_legend())+
-            theme_ridges(center=TRUE,grid=TRUE)
-          
-          plot(p)
-        })
-        
         output$distr_mse_fold_plot2 <- renderPlotly({
           if(!is.null(tp)){
 
@@ -1678,9 +1614,9 @@ app_server <- function(input, output, session) {
             ggplotly(p) %>% 
               layout(autosize=TRUE)
           }
-        })
           
-        
+          
+        })
         
       }
       # } else if (fold_df %>% 

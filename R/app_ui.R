@@ -4,34 +4,62 @@
 #'
 #' @import shiny
 #' @import shinydashboard
+#' @import shinydashboardPlus
 #' @import shinyWidgets
 #' @import plotly
 #' @import rhandsontable
 app_ui <- function(request) {
   tagList(
     golem_add_external_resources(),
-    dashboardPage(
-      dashboardHeader(title = "Time Series",
-                      dropdownMenuOutput('info_top') #General information button at top-right. 
+    dashboardPagePlus(
+      dashboardHeaderPlus(title = "TS",
+                          fixed=FALSE,
+                      dropdownMenuOutput('info_top'),
+                      enable_rightsidebar=TRUE#General information button at top-right. 
                       #currently only shows:
                       # a) "active" dataset
                       # b) "selected subject ID"
       ),
       #------------------------------ Side Bar Function -------------------------------------
       dashboardSidebar(
-        sidebarMenu(id = "tabs", 
-                    menuItem("Data", tabName = "data", icon = icon("table"), startExpanded = TRUE,
-                             menuSubItem("Dataset Management", tabName = "data1"),
-                             menuSubItem("Dataset Initialization", tabName = "data2"),
-                             menuSubItem("Dataset Visualization",tabName="vis")
-                    ),
-                    menuItem("Data Simulation", icon = icon("database"),tabName = "sim"),
-                    menuItem("Analysis", icon = icon("microscope"), tabName = "analysis",
-                             menuSubItem("Model Comparison", tabName = "modelcomparison"),
-                             menuSubItem("Timepoint Estimation", tabName="tpestimation")
-                    ),
-                    menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis"),
-                    menuItem("FAQ",icon=icon("question-circle"),tabName="faq")
+        sidebarMenuOutput("menu")
+      ),
+      rightsidebar=rightSidebar(
+        rightSidebarTabContent(
+          id=1,
+          title="Parameters",
+          active=TRUE,
+        conditionalPanel(
+          condition="input.tabs == 'tpestimation'",
+          title = "Time point search",
+          width=3,
+          selectInput(inputId='tp_model1',
+                      label='Choose comparison model 1',
+                      choices=c('Autoregression'='ar',
+                                'Vector Autoregression'='var'),
+                      selected='ar'
+          ),
+          selectInput(inputId='tp_model2',
+                      label='Choose comparison model 2',
+                      choices=c('Autoregression'='ar',
+                                'Vector Autoregression'='var'),
+                      selected='var'
+          ),       
+          selectInput(inputId='tp_error_metric',
+                      label='Choose error metric',
+                      choices=c('Mean Squared Error (MSE)'='mse',
+                                'Root Mean Squared Error (RMSE)'='rmse',
+                                'Mean Absolute Error (MAE)'='mae',
+                                'Mean Absolute Percentage Error (MAPE)'='mape',
+                                'Normalized Mean Squared Error (LMSE)'='nmse',
+                                'Relative Standard Deviation (rSTD)'='rstd'),
+                      selected='mse'),
+          numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
+          numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=20),
+          uiOutput('select_stepsize_init_element'),
+          numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
+          actionButton("submitTPS", "Submit")
+        )
         )
       ),
       #------------------------------ Dashboard Body -------------------------------------
@@ -238,34 +266,10 @@ app_ui <- function(request) {
           tabItem(tabName = "vis",
                   conditionalPanel(condition =  "output.loaded_table_flag == '1'",
                                    fluidPage(
-                                     fluidRow(
-                                       box(width = 2,
-                                           uiOutput("loaded_ds_list_vis"),
-                                           uiOutput("vis_plot_type")
-                                           
-                                       ),
-                                       conditionalPanel(condition =  "output.loaded_table_flag == '1' && output.class_df_flag_vis == false && input.plot_type != 'cor' ",
-                                                        box(width = 2,
-                                                            conditionalPanel(condition = "input.plot_type != 'density' && input.plot_type != 'box' && input.plot_type != 'hist'",
-                                                                             uiOutput("vis_x"),
-                                                                             uiOutput("vis_y")
-                                                            ),
-                                                            conditionalPanel(condition = "input.plot_type == 'density' || input.plot_type == 'hist' || input.plot_type == 'box'",
-                                                                             uiOutput("vis_one_var")
-                                                            )
-                                                        ),
-                                                        conditionalPanel(condition = "input.plot_type == 'scatter' || input.plot_type == 'box'|| input.plot_type == 'hist' || input.plot_type == 'density'",
-                                                                         box(width = 2,
-                                                                             uiOutput("vis_factor")),
-                                                                         uiOutput("sim_data_vis")
-                                                        )
-                                       )
-                                     ),
-                                     fluidRow(
-                                       box(width = 12, title = "plot",
+                                       box(title = "plot",
                                            plotlyOutput("main_plot")
                                            
-                                       )
+                                       
                                      )
                                    )
                   )
@@ -367,51 +371,11 @@ app_ui <- function(request) {
           ),
           tabItem(tabName= "tpestimation",
                   fluidPage(
-                    box(
-                      title = "Time point search",
-                      width=3,
-                      selectInput(inputId='tp_model1',
-                                  label='Choose comparison model 1',
-                                  choices=c('Autoregression'='ar',
-                                            'Vector Autoregression'='var'),
-                                  selected='ar'
-                      ),
-                      selectInput(inputId='tp_model2',
-                                  label='Choose comparison model 2',
-                                  choices=c('Autoregression'='ar',
-                                            'Vector Autoregression'='var'),
-                                  selected='var'
-                      ),       
-                      selectInput(inputId='tp_error_metric',
-                                  label='Choose error metric',
-                                  choices=c('Mean Squared Error (MSE)'='mse',
-                                            'Root Mean Squared Error (RMSE)'='rmse',
-                                            'Mean Absolute Error (MAE)'='mae',
-                                            'Mean Absolute Percentage Error (MAPE)'='mape',
-                                            'Normalized Mean Squared Error (LMSE)'='nmse',
-                                            'Relative Standard Deviation (rSTD)'='rstd'),
-                                  selected='mse'),
-                      numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
-                      numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=20),
-                      uiOutput('select_stepsize_init_element'),
-                      numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
-                      actionButton("submitTPS", "Submit"),
-                      HTML(
-                        "<h3> Based on the selected model and parameters, calculate the needed amount of timepoints to choose VAR over AR </h3>
-                    <p> <b>Fold: </b>The lower the fold size, the lower the lower bound is for number of timepoints. 
-                    If the fold number is very high, the estimate will be more stabile. 
-                    However, the estimate will be also biased towards a larger number </p>
-
-                    <p> <b>Maximum iterations:</b> The maximum number of iterations should be increased if you have trouble converging. </p>
-                    <p> <b>Stepsize: </b>The initial stepsize should be decreased if you end up reaching the lower bound too quickly.</p>
-                    <p> <b>Stepsize scaler: </b> Likewise, the stepsize scaler follows the same logic, 
-                    as it is the modifier by which the stepsize is multiplied after finding a changepoint between models </p>
-                    "
-                      )
+                    fluidRow(
+                      uiOutput("tp")
+                      # uiOutput("tp_last_1"),
+                      # uiOutput("tp_last_2")
                     ),
-                    uiOutput("tp"),
-                    uiOutput("tp_last_1"),
-                    uiOutput("tp_last_2"),
                     uiOutput('tp_plots')
                   )
           ),

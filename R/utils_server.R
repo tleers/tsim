@@ -29,6 +29,7 @@ nzmean <- function(x) {
     mean(x[!zvals])
 }
 
+
 pop.var <- function(x)
   var(x) * (length(x) - 1) / length(x)
 pop.sd <- function(x)
@@ -102,6 +103,13 @@ extractPhi <- function(model){
   UseMethod('extractPhi',model)
 }
 
+extractAIC <- function(model){
+  UseMethod('extractAIC',model)
+}
+extractAIC.ar <- function(model){
+  log(det(extractInno(model)))+(2*model$order.max*ncol(model$resid)^2)/nrow(model$resid)
+}
+
 extractInno.varest <- function(model){
   nvar <- ncol(model$y)
   resid_matrix <- matrix(0,length(model$varresult[[1]]$residuals),nvar)
@@ -109,11 +117,11 @@ extractInno.varest <- function(model){
   for (i in 1:length(model$varresult)) {
     resid_matrix[,i] <- model$varresult[[i]]$residuals
   }
-  return(cov(standardize.popsd(na.omit(resid_matrix))))
+  return(cov(na.omit(resid_matrix)))
 }
 
 extractInno.ar <- function(model){
-  return(cov(standardize.popsd(na.omit(model$resid))))
+  return(cov(na.omit(model$resid)))
 }
 
 extractInno.arest <- extractInno.ar
@@ -283,6 +291,83 @@ fix_inno <- function(inno){
   # }
 }
 
+computeData.ar <-function(nVar,
+                          time,
+                          error,
+                          model,
+                          phi,
+                          inno,
+                          val=TRUE,
+                          burn=1000){
+  
+  #To avoid crashes, we validate the phi matrix and the innovation matrix.
+  if(val){
+    if(!validate_phi(phi)){
+      warning("Transition matrix invalid")
+      return(NULL)
+    }
+    
+    if(!validate_inno(inno)){
+      inno<-fix_inno(inno)
+      if(is.null(inno)){
+        warning("Innovation matrix invalid")
+        return(NULL)
+      }
+    }
+  }
+  
+  #Generate errors
+  innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
+  
+  #Create empty matrix
+  U <- matrix(innovations, time + burn, nVar)
+  simdata <- matrix(0, time + burn, nVar)
+  simdata[1, ] <- U[1, ]
+  
+  #withProgress(message = paste0('Simulating ',model), value = 0, {
+  for (row in 2:(time + burn)) {
+    simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
+  }
+  randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
+  E <- sqrt(error) * randomError
+  Y <- simdata[-(1:burn), ]  + E
+  #})
+  
+  return(Y)
+}
+
+computeData.var <- computeData.ar
+
+computeData.pcvar <- function(nVar,
+                              time,
+                              error,
+                              model,
+                              phi,
+                              inno,
+                              val=TRUE,
+                              burn=1000,
+                              loading_matrix,
+                              ....){
+  #Generate errors
+  innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
+  
+  #Create empty matrix
+  U <- matrix(innovations, time + burn, nVar)
+  simdata <- matrix(0, time + burn, nVar)
+  simdata[1, ] <- U[1, ]
+  
+  for (row in 2:(time + burn)) {
+    simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
+  }
+  randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
+  E <- sqrt(error) * randomError
+  Y <- simdata[-(1:burn), ] 
+  # 4. Combine component scores F, with loading matrix B and error values E to obtain latent structure
+  Y <- Y %*% t(loading_matrix) + E # Y is the toy data
+  return(Y)
+}
+
+
 computeData <-
   function(nVar,
            time,
@@ -291,41 +376,10 @@ computeData <-
            phi,
            inno,
            val=TRUE,
-           burn=1000) {
-    
-    if(val){
-      if(!validate_phi(phi)){
-        return(NULL)
-      }
-      
-      if(!validate_inno(inno)){
-        inno<-fix_inno(inno)
-        if(is.null(inno)){
-          return(NULL)
-        }
-      }
-    }
-    
-    if(model %in% c('ar','var')){
-      #innovations <- rnorm((nTime + nIntro) * nVar, 0, diag(inno))
-      #innovations <- MASS::mvrnorm(nTime + nIntro, rep(0, nVar), inno)
-      innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
-    }
-    
-    U <- matrix(innovations, time + burn, nVar)
-    simdata <- matrix(0, time + burn, nVar)
-    simdata[1, ] <- U[1, ]
-    
-    #withProgress(message = paste0('Simulating ',model), value = 0, {
-    for (row in 2:(time + burn)) {
-      simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
-    }
-    randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
-    E <- sqrt(error) * randomError
-    Y <- simdata[-(1:burn), ]  + E
-    #})
-    
-    return(Y)
+           burn=1000,
+           ...) {
+    class(model)<-tolower(model)
+    UseMethod("computeData",model)
   }
 
 compareAccuracy <- function(data,
@@ -347,7 +401,7 @@ compareAccuracy <- function(data,
 
 compareCV <- function(data, nVar, nTime, lagNum, index_vars) {
   dataSt <- standardize.popsd(data)
-  K <- 10
+  K <- 3
   CV <- as.numeric(factor(sort(rank(1:nTime %% 10))))
   ### CV loop
   indLastElFold <- tapply(seq_along(CV), CV, max)
@@ -386,7 +440,7 @@ compareCV <- function(data, nVar, nTime, lagNum, index_vars) {
       res2_y <- rep(1:length(res[, 1]), nVar)
       res2 <- cbind(res2, res2_y)
       mse_var[k] <- sum(res ^ 2) / length(as.vector(res))
-      incProgress(1 / K, detail = paste("Block ", k))
+      #incProgress(1 / K, detail = paste("Block ", k))
     }
     MSE_AR <- sum(mse_ar) / K
     MSE_VAR <- sum(mse_var) / K
@@ -627,7 +681,7 @@ searchTP <- function(nVar,
                      stepsize_scaler = .1,
                      index_vars,
                      error_metric) {
-  sig <- 2
+  sig <- 1
   sampling_k <- 5
   if(!validate_phi(phi)){
     return(NULL)
@@ -735,6 +789,19 @@ searchTP <- function(nVar,
             }
             found = TRUE
             print('yeah')
+            
+            if (backup == t){
+              backup_counter <- backup_counter + 1
+            } else {
+              backup_counter <- 0
+            }
+            
+            if (backup_counter >= 20 && mod == 1) {
+              found2 = TRUE
+            } else {
+              mod <- mod
+            }
+            
           } else {
             print(t)
             print(stepsize)
@@ -760,17 +827,7 @@ searchTP <- function(nVar,
       print(t)
       print(stepsize)
       
-      if (backup == t){
-        backup_counter <- backup_counter + 1
-      } else {
-        backup_counter <- 0
-      }
-      
-      if (backup_counter >= 10 && mod == 1) {
-        found2 = TRUE
-      } else {
-        mod <- mod
-      }
+
       
       
       

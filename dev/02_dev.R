@@ -2,14 +2,7 @@
 # 
 # Each step is optional. 
 # 
-install_package_list <- function(list.of.packages){
-  new.packages <-
-    list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
-  if (length(new.packages) > 0) {
-    install.packages(new.packages)
-  }
-  lapply(list.of.packages, usethis::use_package)
-}
+
 # 2. All along your project
 
 ## 2.1 Add modules
@@ -18,58 +11,6 @@ golem::add_module( name = "my_first_module" ) # Name of the module
 golem::add_module( name = "my_other_module" ) # Name of the module
 
 ## 2.2 Add dependencies
-
-list.of.packages = c(
-  "shinythemes",
-  "qgraph",
-  "shinydashboardPlus",
-  "Matrix",
-  "shinyWidgets",
-  "plotly", 
-  #"caret",
-  "dplyr", 
-  "data.table", 
-  "lubridate", 
-  "reshape2",
-  "DT", 
-  "knitr", 
-  "kableExtra",
-  "datasets",
-  "ggplot2",
-  "MASS",
-  "psych",
-  "stats",
-  "shinydashboard",
-  "reshape2",
-  "vars",
-  "xtable",
-  "Hmisc",
-  "reshape",
-  "rowr",
-  "grid",
-  "gridExtra",
-  "rlist",
-  "pracma",
-  "latex2exp",
-  "dplyr",
-  "rhandsontable",
-  "lubridate",
-  #"RSQLite",
-  "here",
-  "devtools",
-  #"sqldf",
-  #"DBI",
-  #"dbplyr",
-  "pool",
-  #"RMySQL",
-  #"tidyverse",
-  "tibble",
-  "tsibble",
-  "rintrojs",
-  "sparsevar"
-)
-install_package_list(list.of.packages)
-
 
 
 
