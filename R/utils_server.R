@@ -390,15 +390,16 @@ searchTP <- function(nVar,
                      gen_model,
                      model1='ar',
                      model2='var',
-                     phi,
-                     inno,
                      lagNum,
                      K = 5,
                      max_iter = 25,
                      stepsize_init = 10,
                      stepsize_scaler = .1,
                      index_vars,
-                     error_metric) {
+                     error_metric,
+                     phi = NULL,
+                     inno = NULL,
+                     loading_matrix = NULL) {
   sig <- 1
   sampling_k <- 5
   if(!validate_phi(phi)){

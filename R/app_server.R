@@ -1208,6 +1208,12 @@ app_server <- function(input, output, session) {
     }
   })
   
+  output$loading_matrix <- renderRHandsontable({
+    if(!is.null(updated_lm())){
+      rhandsontable(updated_lm())
+    }
+  })
+  
   output$phi <- renderRHandsontable({
     if(!is.null(updated_phi())){
       rhandsontable(updated_phi())
@@ -1247,6 +1253,16 @@ app_server <- function(input, output, session) {
     phi_output
   })
   
+  updated_lm <- reactive({
+    if(!is.null(input_df$df)){
+      lm_output <- matrix(0,ncol(filedata_updated()),ncol(filedata_updated()))
+      diag(lm_output)<-1
+    } else {
+      lm_output <- NULL
+    }
+    lm_output
+  })  
+  
   selectedSimMod <- reactive({
     input$selection1
   })
@@ -1259,51 +1275,6 @@ app_server <- function(input, output, session) {
   selected_nvar <- reactive({
     input$nVar
   })
-  
-  # selected_ntime <- reactive({
-  #   input$nTime
-  # })
-  # 
-  # selected_nerror <- reactive({
-  #   input$nError
-  # })
-  # 
-  # selected_ndiagphi <- reactive({
-  #   input$nDiagPhi
-  # })
-  # 
-  # selected_ninnovar <- reactive ({
-  #   input$nInnoVar
-  # })
-  # 
-  # selected_ninnocovar <- reactive({
-  #   input$nInnoCovar
-  # })
-  # 
-  # selected_noffdiagphi <- reactive({
-  #   ifelse(selected_nmodel1() == 'var',input$nOffdiagPhi,0)
-  # })
-  # 
-  # selected_nmodel1 <- reactive({
-  #   input$nModel1
-  # })
-  # 
-  # selected_nmodel2 <- reactive({
-  #   input$nModel2
-  # })
-  # 
-  # r <- list(
-  #   data = NULL,
-  #   nVar = selected_nvar(),
-  #   nTime = selected_ntime(),
-  #   error = selected_nerror(),
-  #   diagPhi = selected_ndiagphi(),
-  #   innoVar = selected_ninnovar(),
-  #   innoCovar = selected_ninnocovar(),
-  #   offdiagPhi = ifelse(selected_nmodel1() == 'var',selected_noffdiagphi(),0),
-  #   nModel1 = selected_nmodel1(),
-  #   nModel2 = selected_nmodel2()
-  # )
   
   r <-
     reactiveValues(
@@ -1376,7 +1347,13 @@ app_server <- function(input, output, session) {
   
   
   
-  
+  current_lm_input <- reactive({
+    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+      dlm <- hot_to_r(input$loading_matrix)
+    } else if (input$select_simulation_parameter_origin == 'Manual'){
+      dlm <- hot_to_r(input$loading_matrix)
+    }
+  })
   
   current_phi_input <- reactive({
     if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
@@ -1405,7 +1382,8 @@ app_server <- function(input, output, session) {
         val=TRUE,
         burn=1000,
         current_phi_input(),
-        current_inno_input()
+        current_inno_input(),
+        current_lm_input()
       )
     if(!is.null(r$data)){
       showNotification("Parameters succesfully loaded. Simulated dataset initialized.",
@@ -1475,15 +1453,16 @@ app_server <- function(input, output, session) {
       r$nModel1,
       tp_selected_model1(),
       tp_selected_model2(),
-      current_phi_input(),
-      current_inno_input(),
       selectedLagNum(),
       K,
       max_iter,
       stepsize_init,
       stepsize_scaler,
       loaded_dataset_index_variable(),
-      error_metric
+      error_metric,
+      current_phi_input(),
+      current_inno_input(),
+      current_lm_input()
     )
     
     #FUNCTION RETURNS NULL IF ERRORS OCCURR AND AS SUCH WE WILL NOT RENDER ANYTHING

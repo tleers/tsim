@@ -164,3 +164,71 @@ altpredict.arest <- function(model,data){
   return(list(pred,se))
 }
 
+
+
+
+
+#########SHINY-SPECIFIC----------
+ar_sim_server_mod <- function(input, output, session, data, left, right){
+output$inno_ar <- renderRHandsontable({
+  if(!is.null(updated_inno())){
+    rhandsontable(updated_inno())
+  }
+})
+
+output$loading_matrix <- renderRHandsontable({
+  if(!is.null(updated_lm())){
+    rhandsontable(updated_lm())
+  }
+})
+
+output$phi <- renderRHandsontable({
+  if(!is.null(updated_phi())){
+    rhandsontable(updated_phi())
+  }
+})
+}
+####Data simulation shiny module----
+
+
+ar_sim_ui_mod<-function(id){
+  box(
+  condition = "input.select_simulation_parameter_origin == 'Manual'",
+  numericInput(
+    "nDiagPhi",
+    "Diagonal PHI:",
+    .1,
+    min = 0.1,
+    max = 1,
+    step = 0.1
+  ),
+  numericInput(
+    "nInnoVar",
+    "Variance of innovations",
+    .01,
+    min = 0.01,
+    max = 10,
+    step = 0.1
+  )
+  ),
+conditionalPanel(
+  condition = "input.select_simulation_parameter_origin == 'Manual'",
+  numericInput(
+    "nOffdiagPhi",
+    "Offdiagonal PHI",
+    .1,
+    min = 0.1,
+    max = 1,
+    step = 0.1
+  ),
+  numericInput(
+    "nInnoCovar",
+    "Covariance of innovations",
+    .01,
+    min = 0.01,
+    max = 10,
+    step = 0.1
+  )
+)
+}
+  

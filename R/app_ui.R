@@ -315,45 +315,7 @@ app_ui <- function(request) {
                           step = 0.01
                         ),
                         uiOutput('num_var_sim'),
-                        uiOutput('num_tp_sim'),
-                        conditionalPanel(
-                          condition = "(input.selection1 == 'var' || input.selection1 == 'ar') && input.select_simulation_parameter_origin == 'Manual'",
-                          numericInput(
-                            "nDiagPhi",
-                            "Diagonal PHI:",
-                            .1,
-                            min = 0.1,
-                            max = 1,
-                            step = 0.1
-                          ),
-                          numericInput(
-                            "nInnoVar",
-                            "Variance of innovations",
-                            .01,
-                            min = 0.01,
-                            max = 10,
-                            step = 0.1
-                          )
-                        ),
-                        conditionalPanel(
-                          condition = "input.selection1 == 'var' && input.select_simulation_parameter_origin == 'Manual'",
-                          numericInput(
-                            "nOffdiagPhi",
-                            "Offdiagonal PHI",
-                            .1,
-                            min = 0.1,
-                            max = 1,
-                            step = 0.1
-                          ),
-                          numericInput(
-                            "nInnoCovar",
-                            "Covariance of innovations",
-                            .01,
-                            min = 0.01,
-                            max = 10,
-                            step = 0.1
-                          )
-                          
+                        uiOutput('num_tp_sim')
                         ),
                         actionButton("submit1", "Submit")
                     ),
