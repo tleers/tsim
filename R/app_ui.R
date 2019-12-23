@@ -9,6 +9,7 @@
 #' @import plotly
 #' @import rhandsontable
 app_ui <- function(request) {
+
   tagList(
     golem_add_external_resources(),
     dashboardPagePlus(
@@ -27,40 +28,53 @@ app_ui <- function(request) {
       rightsidebar=rightSidebar(
         rightSidebarTabContent(
           id=1,
-          title="Parameters",
+          title="",
+          icon='ar',
           active=TRUE,
         conditionalPanel(
           condition="input.tabs == 'tpestimation'",
-          title = "Time point search",
+          title = "Model parameter configuration",
           width=3,
           selectInput(inputId='tp_model1',
                       label='Choose comparison model 1',
-                      choices=c('Autoregression'='ar',
-                                'Vector Autoregression'='var'),
+                      choices=model_list,
                       selected='ar'
           ),
           selectInput(inputId='tp_model2',
                       label='Choose comparison model 2',
-                      choices=c('Autoregression'='ar',
-                                'Vector Autoregression'='var'),
+                      choices=model_list,
                       selected='var'
-          ),       
-          selectInput(inputId='tp_error_metric',
-                      label='Choose error metric',
-                      choices=c('Mean Squared Error (MSE)'='mse',
-                                'Root Mean Squared Error (RMSE)'='rmse',
-                                'Mean Absolute Error (MAE)'='mae',
-                                'Mean Absolute Percentage Error (MAPE)'='mape',
-                                'Normalized Mean Squared Error (LMSE)'='nmse',
-                                'Relative Standard Deviation (rSTD)'='rstd'),
-                      selected='mse'),
-          numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
-          numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=20),
-          uiOutput('select_stepsize_init_element'),
-          numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
+                      )
+        )
+        ),
+        rightSidebarTabContent(
+          id=2,
+          title="",
+          active=FALSE,
+          conditionalPanel(
+            condition="input.tabs == 'tpestimation'",
+            title = "Algorithm parameter configuration",
+            width=3,
+            selectInput(inputId='tp_error_metric',
+                        label='Choose error metric',
+                        choices=c('Mean Squared Error (MSE)'='mse',
+                                  'Root Mean Squared Error (RMSE)'='rmse',
+                                  'Mean Absolute Error (MAE)'='mae',
+                                  'Mean Absolute Percentage Error (MAPE)'='mape',
+                                  'Normalized Mean Squared Error (LMSE)'='nmse',
+                                  'Relative Standard Deviation (rSTD)'='rstd'),
+                        selected='mse'),
+            numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
+            numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=20),
+            uiOutput('select_stepsize_init_element'),
+            numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8)
+          )
+        ),
+        conditionalPanel(
+          condition="input.tabs == 'tpestimation'",
           actionButton("submitTPS", "Submit")
         )
-        )
+        
       ),
       #------------------------------ Dashboard Body -------------------------------------
       dashboardBody(
@@ -284,10 +298,7 @@ app_ui <- function(request) {
                         selectInput(
                           "selection1",
                           "Choose your model of interest.",
-                          c(
-                            "Auto Regression" = "ar",
-                            "Vector Autoregression" = "var"
-                          ),
+                          model_list,
                           selected = "var"
                         ),
                         numericInput('lagNum','Choose the lag-variable',min=1,max=100,value=1),
@@ -403,10 +414,7 @@ app_ui <- function(request) {
                       selectInput(
                         "selection2",
                         "Choose a model to apply to data",
-                        c(
-                          "Auto Regression" = "ar",
-                          "Vector Auto Regression" = "var"
-                        ),
+                        model_list,
                         selected = "ar"
                       ),
                       actionButton("submit2", "Submit")
@@ -443,7 +451,7 @@ golem_add_external_resources <- function() {
   # library(shinydashboard)
   # library(shinydashboardPlus)
   addResourcePath('www', system.file('app/www', package = 'tsim'))
-  
+  model_list <<- unlist(strsplit(model_list,'.R'))
   # Load packages --------------------------------------------------------------------
   #set.seed('1')
   #initiation of packages thanks to https://gist.github.com/benmarwick/5054846

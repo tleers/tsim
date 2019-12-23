@@ -5,6 +5,12 @@
 #' @import shinydashboardPlus
 app_server <- function(input, output, session) {
   
+  models <- dir('models')
+  models <- paste0('models/', models)
+  lapply(models, source)
+  model_list <<- unlist(strsplit(model_list,'.R'))
+  
+  
   observeEvent(input$browser,{
     browser()
   })
@@ -1123,7 +1129,27 @@ app_server <- function(input, output, session) {
   #------------------------------ Simulation -------------------------------------------------------------------
   
   estParams <- reactive({
-    params <- computeParametersFromDataset(selectedSimMod(), filedata_updated(), selectedLagNum(), loaded_dataset_index_variable())
+    #params init
+    model<-selectedSimMod()
+    dataset<-filedata_updated()
+    lagNum<-selectedLagNum()
+    index_vars<-loaded_dataset_index_variable()
+    
+    #logic
+    dataset <- na.omit(dataset)
+    tmod <- modelData(model,dataset,lagNum,index_vars)
+    colnames <- c('nvar','num','measerror')
+    nvar <- ncol(dataset)
+    
+    resid<-extractResiduals(tmod)
+    phi<-extractPhi(tmod)
+    inno<-extractInno(tmod)
+    
+    colnames(phi) <- names(dataset)
+    rownames(phi) <- names(dataset)
+    colnames(inno) <- names(dataset)
+    rownames(inno) <- names(dataset)
+    params<-list(resid,phi,inno)
   })
   
   filedata_updated <- reactive ({
@@ -1376,6 +1402,8 @@ app_server <- function(input, output, session) {
         r$nTime,
         r$error,
         r$nModel1,
+        val=TRUE,
+        burn=1000,
         current_phi_input(),
         current_inno_input()
       )
