@@ -292,54 +292,35 @@ app_ui <- function(request) {
           #------------------------------ Tabs Simulation -----
           tabItem(tabName = "sim",
                   fluidPage(
-                    title='Simulation parameter setup',
-                    box(conditionalPanel(condition = "output.loaded_table_flag == '1'",
-                                         uiOutput('index_variable')),
-                        selectInput(
-                          "selection1",
-                          "Choose your model of interest.",
-                          model_list,
-                          selected = "var"
-                        ),
-                        numericInput('lagNum','Choose the lag-variable',min=1,max=100,value=1),
-                        uiOutput('simulation_parameter_origin'),
-                        #actionButton("submitModelEstimates", "Estimate parameters"),
-                        status = "success",
-                        solidHeader = TRUE,
-                        numericInput(
-                          "nError",
-                          "Measurement error:",
-                          .3,
-                          min = 0,
-                          max = 1,
-                          step = 0.01
-                        ),
-                        uiOutput('num_var_sim'),
-                        uiOutput('num_tp_sim')
-                        ),
-                        actionButton("submit1", "Submit")
+                    boxPlus(status = "success",
+                            title='Simulation parameter setup',
+                      solidHeader = TRUE,
+                      closable=FALSE,
+                      collapsible=TRUE,
+                      enable_dropdown=TRUE,
+                      uiOutput('index_variable'),
+                      selectInput(
+                        "selection1",
+                        "Choose your data-generating model.",
+                        model_list
+                      ),
+                      numericInput('lagNum','Choose the number of lags',min=1,max=100,value=1),
+                      uiOutput('simulation_parameter_origin'),
+                      numericInput(
+                        "nError",
+                        "Measurement error:",
+                        0,
+                        min = 0,
+                        max = 1,
+                        step = 0.01
+                      ),
+                      uiOutput('num_var_sim'),
+                      uiOutput('num_tp_sim'),
+                      ####Parameters from model
+                      uiOutput('sim_params'),
+                      actionButton("submit1", "Submit")
                     ),
-                    box(
-                      h3("Phi"),
-                      rHandsontableOutput("phi"),
-                      fileInput(
-                        'phifile',
-                        'Upload Phi matrix',
-                        multiple = FALSE,
-                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-                      ),
-                      downloadLink("downloadPhiDataset", "Download Phi Matrix"),
-                      
-                      h3("Innovations"),
-                      rHandsontableOutput("inno"),
-                      fileInput(
-                        'innofile',
-                        'Upload Innovation matrix',
-                        multiple = FALSE,
-                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-                      ),
-                      downloadLink("downloadInnoDataset", "Download Innovation Matrix")
-                    )
+                    uiOutput('sim_params_tables')
                   )
           ),
           tabItem(tabName= "tpestimation",

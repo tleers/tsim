@@ -10,13 +10,11 @@ app_server <- function(input, output, session) {
   lapply(models, source)
   model_list <<- unlist(strsplit(model_list,'.R'))
   
-  
   observeEvent(input$browser,{
     browser()
   })
   
   #------------------------------ Dataset Init -----------------------
-  
   data(alt_data95)
   data(sim_var)
   
@@ -247,7 +245,7 @@ app_server <- function(input, output, session) {
     if(input$data_source == "data_frame" & length(prev_table$data_frame_list) != 0){
       df_view <- NULL
       prev_table$df_name <- input$df_to_load
-      df_view <- get0(input$df_to_load)
+      df_view <- suppressWarnings(get0(input$df_to_load))
       if(length(class(df_view)) > 1 & "data.frame" %in% class(df_view)){
         prev_table$class <- "data.frame"
         df_view <- as.data.frame(df_view)
@@ -490,6 +488,20 @@ app_server <- function(input, output, session) {
     )
   })
   
+  observeEvent(input$selection1,{
+    output$sim_params <- renderUI({
+      callModule(get(paste0('simRenderUI.',input$selection1)),'sim_params')
+    })
+  })
+  
+  observeEvent(input$selection1,{
+    output$sim_params_tables <- renderUI({
+      callModule(get(paste0('simRenderEUI.',input$selection1)),'sim_params_tables')
+    })
+    callModule(get(paste0('simRenderE.',input$selection1)),'sim_params_tables')#,list(input, output, session, input_df, r, estParams)))
+    
+  })
+
   output$simulation_parameter_origin <- renderUI({
     selectInput(
       "select_simulation_parameter_origin",
@@ -1167,8 +1179,6 @@ app_server <- function(input, output, session) {
     }
   })
   
-  
-  
   id_var <- reactive({
     input$select_dataset_id_var
   })
@@ -1185,7 +1195,6 @@ app_server <- function(input, output, session) {
         ids[i] <- which(dlist == input$dataset_select_index_variable[i])
       }
     }
-
     ids
   })
   
@@ -1194,30 +1203,9 @@ app_server <- function(input, output, session) {
     input$current_dataset_id_value
   })
   
-  
-  
   #original df of currently loaded dataset
   filedata <- reactive({
     input_df$df
-  })
-  
-  #Simulation Tab Phi Matrix and Innovation Matrix
-  output$inno <- renderRHandsontable({
-    if(!is.null(updated_inno())){
-      rhandsontable(updated_inno())
-    }
-  })
-  
-  output$loading_matrix <- renderRHandsontable({
-    if(!is.null(updated_lm())){
-      rhandsontable(updated_lm())
-    }
-  })
-  
-  output$phi <- renderRHandsontable({
-    if(!is.null(updated_phi())){
-      rhandsontable(updated_phi())
-    }
   })
   
   data_simulation_parameter_origin <- reactive ({
@@ -1227,41 +1215,7 @@ app_server <- function(input, output, session) {
       NULL
     }
   }) 
-  updated_inno <- reactive({
-    if(!is.null(input_df$df) && (data_simulation_parameter_origin() != 'Manual')){
-      inno_output <- estParams()[[3]]
-    } else if(data_simulation_parameter_origin() == 'Manual'){
-      inno_output<-computeSigma(r$nVar, r$innoVar,r$innoCovar)
-      colnames(inno_output) <- c(paste("V",1:ncol(inno_output),sep="")) 
-      rownames(inno_output) <- c(paste("V",1:nrow(inno_output),sep="")) 
-    } else {
-      inno_output <- NULL
-    }
-    inno_output
-  })
   
-  updated_phi <- reactive({
-    if(!is.null(input_df$df) && data_simulation_parameter_origin() != 'Manual'){
-      phi_output <- estParams()[[2]]
-    } else if(data_simulation_parameter_origin() == 'Manual'){
-      phi_output<-computePhi(r$nVar, r$diagPhi, r$offdiagPhi)
-      colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep="")) 
-      rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep="")) 
-    } else {
-      phi_output <- NULL
-    }
-    phi_output
-  })
-  
-  updated_lm <- reactive({
-    if(!is.null(input_df$df)){
-      lm_output <- matrix(0,ncol(filedata_updated()),ncol(filedata_updated()))
-      diag(lm_output)<-1
-    } else {
-      lm_output <- NULL
-    }
-    lm_output
-  })  
   
   selectedSimMod <- reactive({
     input$selection1
@@ -1297,28 +1251,6 @@ app_server <- function(input, output, session) {
   acc <-
     reactiveValues(comparison = NULL)
   
-  observeEvent({input$nDiagPhi
-    input$nInnoCovar
-    input$nOffdiagPhi
-    input$nVar
-    input$nInnoVar
-    input$nTime
-    input$selection1
-  },{
-    r$nVar <<- input$nVar
-    r$nTime <<- input$nTime
-    r$error <<- input$nError
-    r$diagPhi <<- input$nDiagPhi
-    r$innoVar <<- input$nInnoVar
-    r$innoCovar <<- input$nInnoCovar
-    r$nModel1 <<- input$selection1
-    if (r$nModel1 == 'var') {
-      r$offdiagPhi <<- input$nOffdiagPhi
-    } else {
-      r$offdiagPhi <<- 0
-    }
-  })
-  
   output$sim_data_vis <- renderUI({
     if(!is.null(r$data)){
       selectInput('select_sim_data_vis', 'Show simulated dataset',
@@ -1326,11 +1258,7 @@ app_server <- function(input, output, session) {
                   "No")
     }
   })
-  
-  
-  
-  
-  
+
   output$data_tab2_table <- DT::renderDataTable(
     if(input$data_tab2_na_omit == 'Yes'){
       filedata_updated()
@@ -1345,45 +1273,26 @@ app_server <- function(input, output, session) {
     )
   )
   
-  
-  
-  current_lm_input <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dlm <- hot_to_r(input$loading_matrix)
-    } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dlm <- hot_to_r(input$loading_matrix)
-    }
-  })
-  
-  current_phi_input <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dphi <- hot_to_r(input$phi)
-      #dphi[lower.tri(dphi)] <- dphi[upper.tri(dphi)]
-    } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dphi <- hot_to_r(input$phi)
-    }
-  })
-  
-  current_inno_input <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
-    } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
-    }
-  })
-  
   observeEvent(input$submit1, {
+    print(list(input$nVar,
+                       input$nTime,
+                       input$error,
+                       input$nModel1,
+                       val=TRUE,
+                       burn=1000,
+                       current_phi_input(),
+                       current_inno_input()))
     r$data <<-
       computeData(
-        selected_nvar(),
-        r$nTime,
-        r$error,
-        r$nModel1,
+        input$nVar,
+        input$nTime,
+        input$error,
+        input$nModel1,
         val=TRUE,
         burn=1000,
         current_phi_input(),
-        current_inno_input(),
-        current_lm_input()
+        current_inno_input()
+        #current_lm_input()
       )
     if(!is.null(r$data)){
       showNotification("Parameters succesfully loaded. Simulated dataset initialized.",
@@ -1813,24 +1722,6 @@ app_server <- function(input, output, session) {
     })
   })
 
-  
-  output$downloadInnoDataset <- downloadHandler(
-    filename = function() {
-      paste("inno-", Sys.Date(), ".csv", sep="")
-    },
-    content = function(file) {
-      write.csv(estParams()[[3]], file)
-    }
-  )
-  
-  output$downloadPhiDataset <- downloadHandler(
-    filename = function() {
-      paste("phi-", Sys.Date(), ".csv", sep="")
-    },
-    content = function(file) {
-      write.csv(estParams()[[2]], file)
-    }
-  )
   
   #network analysis
   

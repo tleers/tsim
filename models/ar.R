@@ -43,14 +43,14 @@ modelName.arest<-modelName.ar
 
 ####Data-generating function----
 computeData.ar <-function(nVar,
-                           time,
-                           error,
-                           model,
-                           val=TRUE,
-                           burn=1000,
-                           phi,
-                           inno,
-                           ...){
+                          time,
+                          error,
+                          model,
+                          val=TRUE,
+                          burn=1000,
+                          phi,
+                          inno,
+                          ...){
   
   #To avoid crashes, we validate the phi matrix and the innovation matrix.
   if(val){
@@ -164,71 +164,238 @@ altpredict.arest <- function(model,data){
   return(list(pred,se))
 }
 
-
-
-
-
 #########SHINY-SPECIFIC----------
 ar_sim_server_mod <- function(input, output, session, data, left, right){
-output$inno_ar <- renderRHandsontable({
-  if(!is.null(updated_inno())){
-    rhandsontable(updated_inno())
-  }
-})
+  
+  
+  output$loading_matrix <- renderRHandsontable({
+    if(!is.null(updated_lm())){
+      rhandsontable(updated_lm())
+    }
+  })
+  
 
-output$loading_matrix <- renderRHandsontable({
-  if(!is.null(updated_lm())){
-    rhandsontable(updated_lm())
-  }
-})
+  
+  updated_lm <- reactive({
+    if(!is.null(input_df$df)){
+      lm_output <- matrix(0,ncol(filedata_updated()),ncol(filedata_updated()))
+      diag(lm_output)<-1
+    } else {
+      lm_output <- NULL
+    }
+    lm_output
+  })  
+  
+  
+  current_lm_input <- reactive({
+    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+      dlm <- hot_to_r(input$loading_matrix)
+    } else if (input$select_simulation_parameter_origin == 'Manual'){
+      dlm <- hot_to_r(input$loading_matrix)
+    }
+  })
+  
 
-output$phi <- renderRHandsontable({
-  if(!is.null(updated_phi())){
-    rhandsontable(updated_phi())
-  }
-})
+  
+
+  
+  observeEvent({input$nDiagPhi
+    input$nInnoCovar
+    input$nOffdiagPhi
+    input$nVar
+    input$nInnoVar
+    input$nTime
+    input$selection1
+  },{
+    r$nVar <<- input$nVar
+    r$nTime <<- input$nTime
+    r$error <<- input$nError
+    r$diagPhi <<- input$nDiagPhi
+    r$innoVar <<- input$nInnoVar
+    r$innoCovar <<- input$nInnoCovar
+    r$nModel1 <<- input$selection1
+    if (r$nModel1 == 'var') {
+      r$offdiagPhi <<- input$nOffdiagPhi
+    } else {
+      r$offdiagPhi <<- 0
+    }
+  })
+  
+  
 }
 ####Data simulation shiny module----
 
-
-ar_sim_ui_mod<-function(id){
-  box(
-  condition = "input.select_simulation_parameter_origin == 'Manual'",
-  numericInput(
-    "nDiagPhi",
-    "Diagonal PHI:",
-    .1,
-    min = 0.1,
-    max = 1,
-    step = 0.1
-  ),
-  numericInput(
-    "nInnoVar",
-    "Variance of innovations",
-    .01,
-    min = 0.01,
-    max = 10,
-    step = 0.1
+simRenderEUI.ar<-function(id){
+  ns<-NS(id)
+  tagList(
+    boxPlus(
+      enable_sidebar=TRUE,
+      solid_header=TRUE,
+      collapsible=TRUE,
+      status="success",
+      title='Transition Matrix',
+      rHandsontableOutput(ns("phi")),
+      fileInput(
+        ns('phifile'),
+        'Upload Phi matrix',
+        multiple = FALSE,
+        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+      ),
+      downloadLink(ns("downloadPhiDataset"), "Download Phi Matrix"),
+      sidebar_width = 25,
+      sidebar_start_open = TRUE,
+      sidebar_content = tagList(
+        numericInput(
+          ns("nDiagPhi"),
+          "Diagonal coefficients:",
+          .1,
+          min = 0.1,
+          max = 1,
+          step = 0.1
+        )
+      )
+    ),
+    boxPlus(
+      enable_sidebar=TRUE,
+      solidheader=TRUE,
+      collapsible=TRUE,
+      status="success",
+      title="Innovation Matrix",
+      rHandsontableOutput(ns("inno")),
+      fileInput(
+        ns('innofile'),
+        'Upload Innovation matrix',
+        multiple = FALSE,
+        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+      ),
+      downloadLink(ns("downloadInnoDataset"), "Download Innovation Matrix"),
+      sidebar_width = 25,
+      sidebar_start_open = TRUE,
+      sidebar_content = tagList(
+        numericInput(
+          ns("nInnoVar"),
+          "Diagonal coefficients",
+          .01,
+          min = 0.01,
+          max = 10,
+          step = 0.1
+        ),
+        numericInput(
+          ns("nInnoCovar"),
+          "Off-diagonal coefficients",
+          .01,
+          min = 0.01,
+          max = 10,
+          step = 0.1
+        )
+      )
+    )
   )
-  ),
-conditionalPanel(
-  condition = "input.select_simulation_parameter_origin == 'Manual'",
-  numericInput(
-    "nOffdiagPhi",
-    "Offdiagonal PHI",
-    .1,
-    min = 0.1,
-    max = 1,
-    step = 0.1
-  ),
-  numericInput(
-    "nInnoCovar",
-    "Covariance of innovations",
-    .01,
-    min = 0.01,
-    max = 10,
-    step = 0.1
-  )
-)
 }
+
+simRenderUI.ar<-function(id){
+  tagList(
+    h1('')
+  )
+}
+
+computeDataArgs.ar<-function(id){
+  return(list('current_phi_input()',
+                 'current_inno_input()')
+  )
+}
+
+simRenderE.ar<-function(input, output, session, input_df, r, estParams){
   
+  #DOWNLOAD
+  output$downloadInnoDataset <- downloadHandler(
+    filename = function() {
+      paste("inno-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(estParams()[[3]], file)
+    }
+  )
+
+  output$downloadPhiDataset <- downloadHandler(
+    filename = function() {
+      paste("phi-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(estParams()[[2]], file)
+    }
+  )
+  
+  #TABLES
+  
+  #currently active - what is actually in the table
+  current_phi_input <- reactive({
+    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+      dphi <- hot_to_r(input$phi)
+    } else if (input$select_simulation_parameter_origin == 'Manual'){
+      dphi <- hot_to_r(input$phi)
+    }
+  })
+
+  current_inno_input <- reactive({
+    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
+    } else if (input$select_simulation_parameter_origin == 'Manual'){
+      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
+    }
+  })
+  
+  #display
+  output$phi <- renderRHandsontable({
+    if(!is.null(updated_phi())){
+      rhandsontable(updated_phi())
+    }
+  })
+  
+  output$inno <- renderRHandsontable({
+    if(!is.null(updated_inno())){
+      rhandsontable(updated_inno())
+    }
+  })
+  
+  #what is the value based off of dataset: initial values for tables
+  updated_phi <- reactive({
+    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+      phi_output <- estParams()[[2]]
+    } else if(input$select_simulation_parameter_origin == 'Manual'){
+      phi_output<-computePhi(input$nVar, .5, .3)
+      colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
+      rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep=""))
+      print(phi_output)
+      
+    } else {
+      phi_output <- NULL
+    }
+    phi_output
+  })
+
+  updated_inno <- reactive({
+    if(!is.null(input_df$df) && (input$select_simulation_parameter_origin != 'Manual')){
+      inno_output <- estParams()[[3]]
+    } else if(input$select_simulation_parameter_origin == 'Manual'){
+      inno_output<-computeSigma(input$nVar, 1,.1)
+      colnames(inno_output) <- c(paste("V",1:ncol(inno_output),sep=""))
+      rownames(inno_output) <- c(paste("V",1:nrow(inno_output),sep=""))
+      print(inno_output)
+      
+    } else {
+      inno_output <- NULL
+    }
+    inno_output
+  })
+  
+  return()
+}
+#     numericInput(
+#       "nOffdiagPhi",
+#       "Offdiagonal PHI",
+#       .1,
+#       min = 0.1,
+#       max = 1,
+#       step = 0.1
+#     ),

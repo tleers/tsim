@@ -49,6 +49,22 @@ computeError <- function(model,pred,dat){
   UseMethod('computeError',model)
 }
 
+
+#Used for rendering parameter config in simulation 
+simRenderUI<-function(id){
+  UseMethod('simRenderUI',id)
+}
+
+#Used for rendering editable tables for parameter config in simulation
+simRenderEUI<-function(id){
+  UseMethod('simRenderEUI',id)
+}
+
+#Server logic behind editable tables
+simRenderE<-function(input, output, session, input_df, r, estParams){
+  UseMethod('simRenderE',match.call())
+}
+
 modelName <- function(model){
   class(model)<-tolower(model)
   useMethod('modelName',model)
