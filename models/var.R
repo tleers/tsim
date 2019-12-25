@@ -1,5 +1,35 @@
 #VAR(p) implementation based on Bulteel et al. 2018, modified by Tim Leers
 
+#shiny-specific arguments needed for computedata
+computeDataArgs.var <- function(model){
+  list(input$nVar,
+       input$nTime,
+       0,
+       input$selection1,
+       val=TRUE,
+       burn=1000,
+       #model-specific parameters
+       current_phi_input(),
+       current_inno_input())
+}
+modelDataArgs.var <- function(model){
+  return(
+    list(
+      input$selection1,
+      filedata_updated() %>% standardize.popsd,
+      selectedLagNum(),
+      loaded_dataset_index_variable())
+  )
+}
+
+relevantModelParameters.varest<-function(tmod){
+  return(list(phi=extractPhi(tmod),
+              inno=extractInno(tmod)
+  ))
+}
+
+relevantModelParameters.var <- relevantModelParameters.varest
+
 
 ####Name function-----
 modelName.var<-function(model){
@@ -14,9 +44,12 @@ computeData.var <-function(nVar,
                           model,
                           val=TRUE,
                           burn=1000,
-                          phi,
-                          inno,
+                          mod_vars,
                           ...){
+  
+  
+  inno <- mod_vars$inno
+  phi <- mod_vars$phi
   
   #To avoid crashes, we validate the phi matrix and the innovation matrix.
   if(val){
@@ -47,7 +80,8 @@ computeData.var <-function(nVar,
     simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
   }
   randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
-  E <- sqrt(error) * randomError
+  #E <- sqrt(error) * randomError
+  E <- 0
   Y <- simdata[-(1:burn), ]  + E
   #})
   

@@ -35,6 +35,64 @@ ar.multivariate <- function(x,aic=TRUE,order.max=1,na.action=na.fail,demean=TRUE
 }
 
 
+#shiny-specific arguments needed for computedata
+computeDataArgs.ar <- function(model){
+  list(input$nVar,
+       input$nTime,
+       0,
+       input$selection1,
+       val=TRUE,
+       burn=1000,
+       #model-specific parameters
+       current_phi_input(),
+       current_inno_input())
+}
+
+searchTPArgs <- function(model){
+  class(model)<-tolower(model)
+  UseMethod('searchTPArgs',model)
+}
+
+searchTPArgs.arest <- function(model){
+  return(list(input$nVar,
+             input$nTime,
+             input$error,
+             input$selection1,
+             tp_selected_model1(),
+             tp_selected_model2(),
+             input$lagNum,
+             K,
+             max_iter,
+             stepsize_init,
+             stepsize_scaler,
+             loaded_dataset_index_variable(),
+             error_metric,
+             current_phi_input(),
+             current_inno_input()
+             #current_lm_input()
+             ))
+}
+
+
+modelDataArgs.ar <- function(model){
+  return(
+    list(
+      input$selection1,
+      filedata_updated() %>% standardize.popsd,
+      selectedLagNum(),
+      loaded_dataset_index_variable())
+  )
+}
+
+relevantModelParameters.arest<-function(tmod){
+  return(list(phi=extractPhi(tmod),
+              inno=extractInno(tmod)
+  ))
+}
+
+relevantModelParameters.ar <- relevantModelParameters.arest
+
+
 ####Name function-----
 modelName.ar<-function(model){
   return('Autoregression')
@@ -42,16 +100,18 @@ modelName.ar<-function(model){
 modelName.arest<-modelName.ar
 
 ####Data-generating function----
+
 computeData.ar <-function(nVar,
                           time,
                           error,
                           model,
                           val=TRUE,
                           burn=1000,
-                          phi,
-                          inno,
+                          mod_vars,
                           ...){
   
+  inno <- mod_vars$inno
+  phi <- mod_vars$phi
   #To avoid crashes, we validate the phi matrix and the innovation matrix.
   if(val){
     if(!validate_phi(phi)){
@@ -81,7 +141,8 @@ computeData.ar <-function(nVar,
     simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
   }
   randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
-  E <- sqrt(error) * randomError
+  #E <- sqrt(error) * randomError
+  E <- 0
   Y <- simdata[-(1:burn), ]  + E
   #})
   
@@ -100,6 +161,9 @@ modelData.ar <- function(model, dataset,lagNum,index_vars = NULL) {
     order.max=lagNum
   )
 }
+
+
+
 
 
 ####Parameter extraction functions-----
@@ -129,6 +193,7 @@ extractResiduals.ar <- function(model){
   model$resid
 }
 
+extractResiduals.arest <- extractResiduals.ar
 ####Error computation function----
 computeError.arest <- function(model,pred,dat){
   error <- pracma::rmserr(dat %>% unlist() %>% as.numeric(), pred[[1]] %>% as.numeric())
@@ -167,36 +232,7 @@ altpredict.arest <- function(model,data){
 #########SHINY-SPECIFIC----------
 ar_sim_server_mod <- function(input, output, session, data, left, right){
   
-  
-  output$loading_matrix <- renderRHandsontable({
-    if(!is.null(updated_lm())){
-      rhandsontable(updated_lm())
-    }
-  })
-  
 
-  
-  updated_lm <- reactive({
-    if(!is.null(input_df$df)){
-      lm_output <- matrix(0,ncol(filedata_updated()),ncol(filedata_updated()))
-      diag(lm_output)<-1
-    } else {
-      lm_output <- NULL
-    }
-    lm_output
-  })  
-  
-  
-  current_lm_input <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dlm <- hot_to_r(input$loading_matrix)
-    } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dlm <- hot_to_r(input$loading_matrix)
-    }
-  })
-  
-
-  
 
   
   observeEvent({input$nDiagPhi
@@ -223,173 +259,25 @@ ar_sim_server_mod <- function(input, output, session, data, left, right){
   
   
 }
-####Data simulation shiny module----
 
-simRenderEUI.ar<-function(id){
-  ns<-NS(id)
-  tagList(
-    boxPlus(
-      enable_sidebar=TRUE,
-      solid_header=TRUE,
-      collapsible=TRUE,
-      status="success",
-      title='Transition Matrix',
-      rHandsontableOutput(ns("phi")),
-      fileInput(
-        ns('phifile'),
-        'Upload Phi matrix',
-        multiple = FALSE,
-        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-      ),
-      downloadLink(ns("downloadPhiDataset"), "Download Phi Matrix"),
-      sidebar_width = 25,
-      sidebar_start_open = TRUE,
-      sidebar_content = tagList(
-        numericInput(
-          ns("nDiagPhi"),
-          "Diagonal coefficients:",
-          .1,
-          min = 0.1,
-          max = 1,
-          step = 0.1
-        )
-      )
-    ),
-    boxPlus(
-      enable_sidebar=TRUE,
-      solidheader=TRUE,
-      collapsible=TRUE,
-      status="success",
-      title="Innovation Matrix",
-      rHandsontableOutput(ns("inno")),
-      fileInput(
-        ns('innofile'),
-        'Upload Innovation matrix',
-        multiple = FALSE,
-        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-      ),
-      downloadLink(ns("downloadInnoDataset"), "Download Innovation Matrix"),
-      sidebar_width = 25,
-      sidebar_start_open = TRUE,
-      sidebar_content = tagList(
-        numericInput(
-          ns("nInnoVar"),
-          "Diagonal coefficients",
-          .01,
-          min = 0.01,
-          max = 10,
-          step = 0.1
-        ),
-        numericInput(
-          ns("nInnoCovar"),
-          "Off-diagonal coefficients",
-          .01,
-          min = 0.01,
-          max = 10,
-          step = 0.1
-        )
-      )
-    )
-  )
-}
+####Shiny support functions
+
+
+####Data simulation shiny module----
 
 simRenderUI.ar<-function(id){
   tagList(
-    h1('')
-  )
-}
-
-computeDataArgs.ar<-function(id){
-  return(list('current_phi_input()',
-                 'current_inno_input()')
-  )
+)
 }
 
 simRenderE.ar<-function(input, output, session, input_df, r, estParams){
   
-  #DOWNLOAD
-  output$downloadInnoDataset <- downloadHandler(
-    filename = function() {
-      paste("inno-", Sys.Date(), ".csv", sep="")
-    },
-    content = function(file) {
-      write.csv(estParams()[[3]], file)
-    }
-  )
-
-  output$downloadPhiDataset <- downloadHandler(
-    filename = function() {
-      paste("phi-", Sys.Date(), ".csv", sep="")
-    },
-    content = function(file) {
-      write.csv(estParams()[[2]], file)
-    }
-  )
-  
-  #TABLES
-  
-  #currently active - what is actually in the table
-  current_phi_input <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dphi <- hot_to_r(input$phi)
-    } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dphi <- hot_to_r(input$phi)
-    }
-  })
-
-  current_inno_input <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
-    } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
-    }
-  })
-  
-  #display
-  output$phi <- renderRHandsontable({
-    if(!is.null(updated_phi())){
-      rhandsontable(updated_phi())
-    }
-  })
-  
-  output$inno <- renderRHandsontable({
-    if(!is.null(updated_inno())){
-      rhandsontable(updated_inno())
-    }
-  })
-  
-  #what is the value based off of dataset: initial values for tables
-  updated_phi <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      phi_output <- estParams()[[2]]
-    } else if(input$select_simulation_parameter_origin == 'Manual'){
-      phi_output<-computePhi(input$nVar, .5, .3)
-      colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
-      rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep=""))
-      print(phi_output)
-      
-    } else {
-      phi_output <- NULL
-    }
-    phi_output
-  })
-
-  updated_inno <- reactive({
-    if(!is.null(input_df$df) && (input$select_simulation_parameter_origin != 'Manual')){
-      inno_output <- estParams()[[3]]
-    } else if(input$select_simulation_parameter_origin == 'Manual'){
-      inno_output<-computeSigma(input$nVar, 1,.1)
-      colnames(inno_output) <- c(paste("V",1:ncol(inno_output),sep=""))
-      rownames(inno_output) <- c(paste("V",1:nrow(inno_output),sep=""))
-      print(inno_output)
-      
-    } else {
-      inno_output <- NULL
-    }
-    inno_output
-  })
-  
-  return()
+  # 
+  # lreturn<-reactive({
+  #   list(updated_inno=updated_inno(),updated_phi=updated_phi(),
+  #        current_phi_input=current_phi_input(),current_inno_input=current_inno_input())
+  # })
+  # return(lreturn)
 }
 #     numericInput(
 #       "nOffdiagPhi",

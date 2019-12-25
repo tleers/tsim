@@ -1,7 +1,64 @@
 
 
-#VAR(p) implementation based on Bulteel et al. 2018, modified by Tim Leers
+#PC-VAR(p) implementation based on Bulteel et al. 2018, modified by Tim Leers
 
+#shiny-specific arguments needed for computedata
+computeDataArgs.pcvar <- function(model){
+  list(input$nVar,
+       input$nTime,
+       0,
+       input$selection1,
+       val=TRUE,
+       burn=1000,
+       #model-specific parameters
+       current_phi_input(),
+       current_inno_input(),
+       current_lm_input())
+}
+
+computeDataArgsRAW.pcvar <- function(model){
+  list(nVar,
+       time,
+       error,
+       gen_model,
+       val=FALSE,
+       burn=1000,
+       #model-specific parameters
+       model_params$phi,
+       model_params$inno,
+       model_params$lm
+  )
+}
+
+modelDataArgsRAW.pcvar <- function(model){
+  return(
+    list(
+      input$selection1,
+      filedata_updated(),
+      selectedLagNum(),
+      loaded_dataset_index_variable(),
+      input$ncomp)
+  )
+}
+
+modelDataArgs.pcvar <- function(model){
+  return(
+    list(
+      input$selection1,
+      filedata_updated() %>% standardize.popsd,
+      selectedLagNum(),
+      loaded_dataset_index_variable(),
+      input$ncomp)
+  )
+}
+
+#parameters that are estimated based on the model fit to the dataset, and which should be editable for the user
+relevantModelParameters.pcvar<-function(tmod){
+  return(list(phi=extractPhi(tmod),
+              inno=extractInno(tmod),
+              lm=extractLM(tmod)
+  ))
+}
 
 ####Name function-----
 modelName.pcvar<-function(model){
@@ -15,10 +72,14 @@ computeData.pcvar <- function(nVar,
                               model,
                               val=TRUE,
                               burn=1000,
-                              phi,
-                              inno,
-                              loading_matrix,
+                              mod_vars,
                               ....){
+  
+  
+  inno <- mod_vars$inno
+  phi <- mod_vars$phi
+  loading_matrix <- mod_vars$lm
+  
   #Generate errors
   innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
   
@@ -31,7 +92,8 @@ computeData.pcvar <- function(nVar,
     simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
   }
   randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
-  E <- sqrt(error) * randomError
+  #E <- sqrt(error) * randomError
+  E <- 0
   Y <- simdata[-(1:burn), ] 
   # 4. Combine component scores F, with loading matrix B and error values E to obtain latent structure
   Y <- Y %*% t(loading_matrix) + E # Y is the toy data
@@ -39,14 +101,17 @@ computeData.pcvar <- function(nVar,
 }
 
 ####Model fit function----
-modelData.pcvar <- function(model, dataset,lagNum,index_vars = NULL, ncomp=ncol(dataset)) {
+modelData.pcvar <- function(model, dataset, lagNum,index_vars = NULL, ncomp=ncol(dataset)) {
   require(psych)
   PCA_varimax<-principal(dataset,
-                         nfactors=nComp,
+                         nfactors=ncomp,
                          rotate="varimax")
   F_rot<-PCA_varimax$scores
   B_rot<-PCA_varimax$loadings
   PCVARfit <- lsfit(head(F_rot,-1),tail(F_rot,-1),intercept = FALSE) # VAR(1) analysis on rotated scores
+  class(PCVARfit)<-'pcvar'
+  PCVARfit$F_rot<-F_rot
+  PCVARfit$B_rot<-B_rot
   return(PCVARfit)
 }
 
@@ -56,13 +121,17 @@ extractPhi.pcvar <- function(model){
 }
 
 extractInno.pcvar <- function(model){
-  return(cov(na.omit(extractResiduals.pcvar)))
+  return(cov(na.omit(extractResiduals.pcvar(model))))
 }
 
 ####Residual extraction function----
 extractResiduals.pcvar <- function(model){
   return(model$residuals)
 } 
+
+extractLM.pcvar<-function(model){
+  return(unclass(model$B_rot))
+}
 
 ####Error computation function----
 

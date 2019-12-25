@@ -9,17 +9,17 @@
 #' @import plotly
 #' @import rhandsontable
 app_ui <- function(request) {
-
+  
   tagList(
     golem_add_external_resources(),
     dashboardPagePlus(
       dashboardHeaderPlus(title = "TS",
                           fixed=FALSE,
-                      dropdownMenuOutput('info_top'),
-                      enable_rightsidebar=TRUE#General information button at top-right. 
-                      #currently only shows:
-                      # a) "active" dataset
-                      # b) "selected subject ID"
+                          dropdownMenuOutput('info_top'),
+                          enable_rightsidebar=TRUE#General information button at top-right. 
+                          #currently only shows:
+                          # a) "active" dataset
+                          # b) "selected subject ID"
       ),
       #------------------------------ Side Bar Function -------------------------------------
       dashboardSidebar(
@@ -31,21 +31,21 @@ app_ui <- function(request) {
           title="",
           icon='ar',
           active=TRUE,
-        conditionalPanel(
-          condition="input.tabs == 'tpestimation'",
-          title = "Model parameter configuration",
-          width=3,
-          selectInput(inputId='tp_model1',
-                      label='Choose comparison model 1',
-                      choices=model_list,
-                      selected='ar'
-          ),
-          selectInput(inputId='tp_model2',
-                      label='Choose comparison model 2',
-                      choices=model_list,
-                      selected='var'
-                      )
-        )
+          conditionalPanel(
+            condition="input.tabs == 'tpestimation'",
+            title = "Model parameter configuration",
+            width=3,
+            selectInput(inputId='tp_model1',
+                        label='Choose comparison model 1',
+                        choices=model_list,
+                        selected='ar'
+            ),
+            selectInput(inputId='tp_model2',
+                        label='Choose comparison model 2',
+                        choices=model_list,
+                        selected='var'
+            )
+          )
         ),
         rightSidebarTabContent(
           id=2,
@@ -280,10 +280,10 @@ app_ui <- function(request) {
           tabItem(tabName = "vis",
                   conditionalPanel(condition =  "output.loaded_table_flag == '1'",
                                    fluidPage(
-                                       box(title = "plot",
-                                           plotlyOutput("main_plot")
-                                           
-                                       
+                                     box(title = "plot",
+                                         plotlyOutput("main_plot")
+                                         
+                                         
                                      )
                                    )
                   )
@@ -294,35 +294,119 @@ app_ui <- function(request) {
                   fluidPage(
                     boxPlus(status = "success",
                             title='Simulation parameter setup',
-                      solidHeader = TRUE,
-                      closable=FALSE,
-                      collapsible=TRUE,
-                      enable_dropdown=TRUE,
-                      uiOutput('index_variable'),
-                      selectInput(
-                        "selection1",
-                        "Choose your data-generating model.",
-                        model_list
-                      ),
-                      numericInput('lagNum','Choose the number of lags',min=1,max=100,value=1),
-                      uiOutput('simulation_parameter_origin'),
-                      numericInput(
-                        "nError",
-                        "Measurement error:",
-                        0,
-                        min = 0,
-                        max = 1,
-                        step = 0.01
-                      ),
-                      uiOutput('num_var_sim'),
-                      uiOutput('num_tp_sim'),
-                      ####Parameters from model
-                      uiOutput('sim_params'),
-                      actionButton("submit1", "Submit")
+                            solidHeader = TRUE,
+                            closable=FALSE,
+                            collapsible=TRUE,
+                            enable_dropdown=TRUE,
+                            uiOutput('index_variable'),
+                            selectInput(
+                              "selection1",
+                              "Choose your data-generating model.",
+                              model_list
+                            ),
+                            numericInput('lagNum','Choose the number of lags',min=1,max=100,value=1),
+                            uiOutput('simulation_parameter_origin'),
+                            numericInput(
+                              "nError",
+                              "Measurement error:",
+                              0,
+                              min = 0,
+                              max = 1,
+                              step = 0.01
+                            ),
+                            uiOutput('num_var_sim'),
+                            uiOutput('num_tp_sim'),
+                            uiOutput('ncomp_pca'),
+                            ####Parameters from model
+                            actionButton("submit1", "Submit")
                     ),
-                    uiOutput('sim_params_tables')
+                    #uiOutput('sim_params')
+                    boxPlus(
+                      enable_sidebar=TRUE,
+                      solid_header=TRUE,
+                      collapsible=TRUE,
+                      status="success",
+                      title='Transition Matrix',
+                      rHandsontableOutput("phi"),
+                      fileInput(
+                        'phifile',
+                        'Upload Phi matrix',
+                        multiple = FALSE,
+                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+                      ),
+                      downloadLink("downloadPhiDataset", "Download Phi Matrix"),
+                      sidebar_width = 25,
+                      sidebar_start_open = TRUE,
+                      sidebar_content = tagList(
+                        numericInput(
+                          "nDiagPhi",
+                          "Diagonal coefficients:",
+                          .1,
+                          min = 0.1,
+                          max = 1,
+                          step = 0.1
+                        )
+                      )
+                    ),
+                    boxPlus(
+                      enable_sidebar=TRUE,
+                      solidheader=TRUE,
+                      collapsible=TRUE,
+                      status="success",
+                      title="Innovation Matrix",
+                      rHandsontableOutput("inno"),
+                      fileInput(
+                        'innofile',
+                        'Upload Innovation matrix',
+                        multiple = FALSE,
+                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+                      ),
+                      downloadLink("downloadInnoDataset", "Download Innovation Matrix"),
+                      sidebar_width = 25,
+                      sidebar_start_open = TRUE,
+                      sidebar_content = tagList(
+                        numericInput(
+                          "nInnoVar",
+                          "Diagonal coefficients",
+                          .01,
+                          min = 0.01,
+                          max = 10,
+                          step = 0.1
+                        ),
+                        numericInput(
+                          "nInnoCovar",
+                          "Off-diagonal coefficients",
+                          .01,
+                          min = 0.01,
+                          max = 10,
+                          step = 0.1
+                        )
+                      )
+                    ),
+                    boxPlus(
+                      enable_sidebar=TRUE,
+                      solidheader=TRUE,
+                      collapsible=TRUE,
+                      status="success",
+                      title="Loading Matrix",
+                      rHandsontableOutput("loading_matrix"),
+                      fileInput(
+                        'lmfile',
+                        'Upload Loading matrix',
+                        multiple = FALSE,
+                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+                      ),
+                      downloadLink("downloadLMDataset", "Download Loading Matrix"),
+                      sidebar_width = 25,
+                      sidebar_start_open = TRUE,
+                      sidebar_content = tagList(
+                        )
+                      )
+                    )
                   )
-          ),
+        
+          ,
+        
           tabItem(tabName= "tpestimation",
                   fluidPage(
                     fluidRow(
@@ -382,11 +466,12 @@ app_ui <- function(request) {
                     box(
                       HTML('placeholder')
                     )
-                  ))
-        ))
-      
+                  )
+                  )
+      )
+        )
+      )
     )
-  )
 }
 
 #' @import shiny
@@ -464,5 +549,5 @@ golem_add_external_resources <- function() {
             # If you have a custom.css in the inst/app/www
             # Or for example, you can add shinyalert::useShinyalert() here
             #tags$link(rel="stylesheet", type="text/css", href="www/custom.css"))
-)
+  )
 }

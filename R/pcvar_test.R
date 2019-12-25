@@ -57,15 +57,16 @@ pcvar_test_computedata <- function(){
   
   loading_matrix<-matrix(0,2,2)
   diag(loading_matrix)<-1
+  
+  model_args <- list(phi=phi,inno=inno,lm=loading_matrix)
   test_args<-list(nVar,
      time,
      error,
      model,
-     phi,
-     inno,
      val=TRUE,
      burn=1000,
-     loading_matrix)
+     model_args)
+  
   
   dat<-do.call(computeData,test_args)
   m<-mean(dat)

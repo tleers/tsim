@@ -143,6 +143,11 @@ extractResiduals <- function(model){
   UseMethod('extractResiduals',model)
 }
 
+#extract loading matrix for PCA-based methods
+extractLM <- function(model){
+  UseMethod('extractLM',model)
+}
+
 #return FALSE if stationarity violated
 # alternative is the augmented dickey-fuller test!
 # alternative is autocorrelation
@@ -152,6 +157,7 @@ extractResiduals <- function(model){
 stationarity <- function(phi) {
   eigenvalues <- eigen(phi)
   eigenvalues <- eigenvalues$values
+  eigenvalues <- as.numeric(eigenvalues)
   if (length(eigenvalues[eigenvalues >= 1] != 0)) {
     return(FALSE)
   } else
@@ -168,14 +174,6 @@ validate_phi <- function(phi){
     warning("Coefficient estimates are missing from input phi matrix.")
     return(FALSE)
   }
-  if (is.complex(eigen(phi)$vectors[1])) {
-    ifelse(is.complex(phi[1]),"Complex eigenvalues were detected - coefficient matrix is highly unstable","No complex eigenvalues detected.")
-    warning("Eigenvalues are complex. If you have estimated the coefficient matrix based on a dataset, the likely reason is collinearity. 
-      Make sure that you define the exogeneous variables.
-            Alternatively, use a model that reduces dimensions, remove variables manually, or change the values in the coefficient matrix manually.")
-    return(FALSE)
-  } 
-  
   if(!stationarity(phi)){
     warning("Stationarity violated, choose different values for the coefficient matrix phi.")
     return(FALSE)
@@ -194,17 +192,10 @@ validate_inno <- function(inno){
 fix_inno <- function(inno){
   if(!is.positive.definite(abs(inno))){
     warning("Innovation matrix is not positive definite. Nearest positive definite matrix has been estimated and used.")
-    # inno <- tryCatch(
-    #   {
-    #     matrix(Matrix::nearPD(inno)$mat,ncol(inno))
-    #   }
-    # )
-    inno <- matrix(Matrix::nearPD(abs(inno))$mat,ncol(inno))
+    inno <- matrix(Matrix::nearPD((inno))$mat,ncol(inno))
+    print('Nearest innovation matrix:')
     print(inno)
   }
-  # if(!validate_inno(inno)){
-  #   return(NULL)
-  # }
 }
 
 ####server function-----
@@ -320,6 +311,35 @@ computeCV <- function(data, model, nTime, nVar, lagNum) {
   list(sum(mse) / K, res2)
 }
 
+
+prepCompTP <- function(model,...){
+  class(model)<-tolower(model)
+  UseMethod('prepSearchTP')
+}
+
+prepCompTP.ar <- function(model,model_params){
+
+  phi <- model_params$phi
+  inno <- model_params$inno
+  return(list(phi=phi,inno=inno))
+}
+
+prepCompTP.var <- function(model,model_params){
+
+  phi <- model_params$phi
+  inno <- model_params$inno
+  return(list(phi=phi,inno=inno))
+}
+
+
+prepCompTP.var <- function(model,model_params){
+
+  phi <- model_params$phi
+  inno <- model_params$inno
+  lm <- model_params$lm
+  return(list(phi=phi,inno=inno,lm=lm))
+}
+
 #' Parent function for computing the MSE for a particular model
 #' 
 #' \code{computeTP} returns the residuals in matrix-format from a fitted timeseries model.
@@ -331,13 +351,11 @@ computeTP <- function(nVar,
                       gen_model,
                       model1='ar',
                       model2='var',
-                      phi,
-                      inno,
                       K = 5,
                       index_vars,
                       lagNum = 1,
-                      error_metric = 'mse') {
-  
+                      error_metric = 'mse',
+                      model_params) {
   #print(paste0('timepoint: ',time))
   #simulate data from the assumed data generating model
   data <- computeData(nVar,
@@ -346,8 +364,7 @@ computeTP <- function(nVar,
                       gen_model,
                       val=FALSE,
                       burn=1000,
-                      phi,
-                      inno
+                      model_params
                       )
   
   #data <- standardize.popsd(data)
@@ -400,6 +417,8 @@ computeTP <- function(nVar,
   return(data.frame(cbind(error1,error2,se1,se2)))
 }
 
+
+  
 searchTP <- function(nVar,
                      nTime,
                      error,
@@ -413,20 +432,11 @@ searchTP <- function(nVar,
                      stepsize_scaler = .1,
                      index_vars,
                      error_metric,
-                     phi = NULL,
-                     inno = NULL,
-                     loading_matrix = NULL) {
+                     model_params
+                     ) {
   sig <- 1
   sampling_k <- 5
-  if(!validate_phi(phi)){
-    return(NULL)
-  }
-  if(!validate_inno(inno)){
-    inno<-fix_inno(inno)
-    if(is.null(inno)){
-      return(NULL)
-    }
-  }
+
   #Minimum number of data points needed to even consider computing a crossvalidation. 
   #Needed to prevent crashes
   minfold <- 1
@@ -475,12 +485,11 @@ searchTP <- function(nVar,
                         gen_model,
                         model1,
                         model2,
-                        phi,
-                        inno,
                         K,
                         index_vars,
                         lagNum,
-                        error_metric)
+                        error_metric,
+                        model_params)
             } else {
             info <- info +
               computeTP(nVar,
@@ -489,12 +498,11 @@ searchTP <- function(nVar,
                         gen_model,
                         model1,
                         model2,
-                        phi,
-                        inno,
                         K,
                         index_vars,
                         lagNum,
-                        error_metric)
+                        error_metric,
+                        model_params)
             }
         }
         
@@ -523,8 +531,7 @@ searchTP <- function(nVar,
               backup <- t
             }
             found = TRUE
-            print('yeah')
-            
+
             if (backup == t){
               backup_counter <- backup_counter + 1
             } else {
@@ -549,7 +556,7 @@ searchTP <- function(nVar,
         # } else {
         #   if(mod2_best - mod1_best > MSE_MOD2-MSE_MOD1){
         #     mod2_best <- MSE_MOD2
-        #     mod1_best <- MSE_MOD1
+        #     mod1_best <- MSE_MOD1s
         #     backup <- t
         #   }
         #   t = t + stepsize
@@ -625,7 +632,7 @@ convertmsedf <- function(msedf, K, model1,model2){
   fold_df <- rbind(tmp1,tmp)
   
   pldf <- cbind(tl,arl,varl)
-  colnames(pldf)<-c('tl','ar','var')
+  colnames(pldf)<-c('tl',model1,model2)
   pldf<-reshape2::melt(pldf,id.vars=1)
   names(pldf) <- c('tl','model','mse')
   return(list(pldf,fold_df))
