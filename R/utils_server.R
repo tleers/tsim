@@ -1,24 +1,24 @@
 ####prep----
-list.of.packages = c(
-  "matrixcalc",
-  "dplyr",
-  "stringr",
-  "VARshrink",
-  "mlVAR",
-  "roxygen2",
-  "devtools",
-  "golem",
-  "mvtnorm"
-)
+# list.of.packages = c(
+#   "matrixcalc",
+#   "dplyr",
+#   "stringr",
+#   "VARshrink",
+#   "mlVAR",
+#   "roxygen2",
+#   "devtools",
+#   "golem",
+#   "mvtnorm"
+# )
 AR_METHOD <<- 'ols'
 options(warn=-1)
 
-new.packages <-
-  list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
-if (length(new.packages) > 0) {
-  install.packages(new.packages)
-}
-lapply(list.of.packages, require, character.only = T)
+# new.packages <-
+#   list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
+# if (length(new.packages) > 0) {
+#   install.packages(new.packages)
+# }
+# lapply(list.of.packages, require, character.only = T)
 
 #general functions----
 

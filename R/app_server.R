@@ -3,24 +3,27 @@
 #' @import xtable
 #' @import ggridges
 #' @import shinydashboardPlus
+#' @import DT
 app_server <- function(input, output, session) {
-  
+  # observeEvent(input$browser,{
+  #   browser()
+  # })
   models <- dir('models')
   models <- paste0('models/', models)
   for(i in 1:length(models)){
     source(models[i],local=TRUE)
   }
-  model_list <<- unlist(strsplit(model_list,'.R'))
+  print(models)
+  model_list <- dir('models')
+  model_list <- unlist(strsplit(model_list,'.R'))
   
-  #------------------------------ Dataset Init -----------------------
+  #------------------------------ Initialize datasets in memory -----------------------
   data(alt_data95)
   data(sim_var)
   
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
                names(which(sapply(.GlobalEnv, is.matrix)))
   )
-  ts_list <- c(names(which(sapply(.GlobalEnv, is.ts))))  
-  
   #------------------------------ First User Introduction -----------------------
   
   #Use this for the shinyintrojs - currently not implemented
@@ -42,6 +45,7 @@ app_server <- function(input, output, session) {
                              class = NULL,
                              var_summary = NULL)
   
+  # active_df currently loaded dataset on which all manipulations are performed
   active_df <- reactiveValues(df = NULL,
                               class = NULL,
                               var_summary = NULL,
@@ -51,7 +55,6 @@ app_server <- function(input, output, session) {
   output$data_select_top <- renderUI({
     selectizeInput(
       'select_df', label = "Select active dataset", choices = input_df$names_list
-      #options = list(create = TRUE)
     )
   })
   
@@ -59,29 +62,12 @@ app_server <- function(input, output, session) {
     sidebarMenu(
       id="tabs",
       uiOutput('data_select_top'),
-      menuItem("Data Management", tabName = "data", icon = icon("table"), startExpanded = TRUE,
-               menuSubItem("Load dataset", tabName = "data1"),
-               menuSubItem("Pre-processing", tabName = "data2"),
-               menuSubItem("Visualization",tabName="vis"),
-               conditionalPanel(
-                 condition="input.tabs == 'vis'",
-                 uiOutput("loaded_ds_list_vis"),
-                 uiOutput("vis_plot_type"),
-                 conditionalPanel(condition =  "output.loaded_table_flag == '1' && output.class_df_flag_vis == false && input.plot_type != 'cor' ",
-                                  conditionalPanel(condition = "input.plot_type != 'density' && input.plot_type != 'box' && input.plot_type != 'hist'",
-                                                   uiOutput("vis_x"),
-                                                   uiOutput("vis_y")
-                                  ),
-                                  conditionalPanel(condition = "input.plot_type == 'density' || input.plot_type == 'hist' || input.plot_type == 'box'",
-                                                   uiOutput("vis_one_var")
-                                  )
-                 ),
-                 conditionalPanel(condition = "input.plot_type == 'scatter' || input.plot_type == 'box'|| input.plot_type == 'hist' || input.plot_type == 'density'",
-                                  box(width = 2,
-                                      uiOutput("vis_factor")),
-                                  uiOutput("sim_data_vis")
-                 )
-               )
+      menuItem("Dataset", 
+               tabName = "data", 
+               icon = icon("table"), 
+               startExpanded = TRUE,
+               menuSubItem("Load", tabName = "data1"),
+               menuSubItem("Initialize", tabName = "data2")
       ),
       menuItem("Data Simulation", icon = icon("database"),tabName = "sim"),
       menuItem("Analysis", icon = icon("microscope"), tabName = "analysis",
@@ -230,7 +216,6 @@ app_server <- function(input, output, session) {
   
   prev_table <- reactiveValues(inputs_list = NULL, # Get the list of available dataset to load
                                data_frame_list = df_list, # List of available dataframes in memory
-                               time_series_list = ts_list, # List of available time series in memory
                                file_name = NULL, # If loading csv file, the name of the file
                                file_path = NULL, # If loading csv file, the path of the file
                                class = NULL, # Identify the class of the selected dataset 
@@ -1283,8 +1268,7 @@ app_server <- function(input, output, session) {
     UseMethod('relevantModelParameters',tmod)
   }
   
-  dataset_innovation_matrix_ar <- colnames(inno) <- names(dataset)
-  rownames(inno) <- names(dataset)
+
   
   filedata_updated <- reactive ({
     if(!is.null(input_df$df)){

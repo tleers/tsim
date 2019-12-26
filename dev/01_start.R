@@ -39,9 +39,7 @@ usethis::use_git()
 ## If you have data in your package
 usethis::use_data_raw( name = "Bringmann2016", open = FALSE ) 
 usethis::use_data_raw( name = "alt_data95", open = FALSE ) 
-usethis::use_data_raw( name = "elise_esm14", open = FALSE ) 
 usethis::use_data_raw( name = "sim_var", open = FALSE ) 
-usethis::use_data_raw( name = "esmdata", open = FALSE ) 
 usethis::use_data(alt_data95)
 usethis::use_data(sim_var)
 

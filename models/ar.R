@@ -149,7 +149,6 @@ computeData.ar <-function(nVar,
   return(Y)
 }
 
-computeData.varest<-computeData.var
 
 ####Model fit function----
 modelData.ar <- function(model, dataset,lagNum,index_vars = NULL) {

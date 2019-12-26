@@ -147,7 +147,6 @@ extractResiduals.var <- function(model){
 extractResiduals.varest <- extractResiduals.var
 
 ####Error computation function----
-computeError.var <- computeError.varest
 
 computeError.varest <- function(model,pred,dat){
   error <- pracma::rmserr(dat %>% unlist() %>% as.numeric(), pred[[1]] %>% as.numeric())
@@ -159,6 +158,7 @@ computeError.varest <- function(model,pred,dat){
   return(error)
 }
 
+computeError.var <- computeError.varest
 
 
 ####Model prediction function----

@@ -12,7 +12,69 @@ golem::add_module( name = "my_other_module" ) # Name of the module
 
 ## 2.2 Add dependencies
 
+source('package_install.R')
+list.of.packages = c( #-------------------------
+  "matrixcalc",
+  "dplyr",
+  "stringr",
+  "VARshrink",
+  "mlVAR",
+  "roxygen2",
+  "devtools",
+  "golem",
+  "mvtnorm",
+  "ggridges",
+  "shinythemes",
+  "qgraph",
+  "shinydashboardPlus",
+  "Matrix",
+  "shinyWidgets",
+  "plotly", 
+  #"caret",
+  "dplyr", 
+  "data.table", 
+  "lubridate", 
+  "reshape2",
+  "DT", 
+  "knitr", 
+  "kableExtra",
+  "datasets",
+  "ggplot2",
+  "MASS",
+  "psych",
+  "stats",
+  "shinydashboard",
+  "reshape2",
+  "vars",
+  "xtable",
+  "Hmisc",
+  "reshape",
+  "rowr",
+  "grid",
+  "gridExtra",
+  "rlist",
+  "pracma",
+  "latex2exp",
+  "dplyr",
+  "rhandsontable",
+  "lubridate",
+  #"RSQLite",
+  "here",
+  "devtools",
+  #"sqldf",
+  #"DBI",
+  #"dbplyr",
+  "pool",
+  #"RMySQL",
+  #"tidyverse",
+  "tibble",
+  "tsibble",
+  "rintrojs",
+  "sparsevar"
+)
 
+#----------
+install_package_list(list.of.packages)
 
 ## 2.3 Add tests
 

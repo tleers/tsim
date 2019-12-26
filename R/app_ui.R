@@ -8,9 +8,11 @@
 #' @import shinyWidgets
 #' @import plotly
 #' @import rhandsontable
-#' @import shinyjs
+#' @import DT
 
 app_ui <- function(request) {
+  model_list <- dir('models')
+  model_list <- unlist(strsplit(model_list,'.R'))
   
   tagList(
     golem_add_external_resources(),
@@ -29,6 +31,9 @@ app_ui <- function(request) {
       ),
       rightsidebar=rightSidebar(
         icon='ellipsis-h',
+        box(width=2,
+            actionButton("browser", "debug")
+        ),
         rightSidebarTabContent(
           id=1,
           title="",
@@ -100,10 +105,7 @@ app_ui <- function(request) {
                     #------------------------------ Tabs 1 Data - fluid row 1 -------------------------------------
                     fluidRow(
                       infoBoxOutput("in_memory_df"),
-                      infoBoxOutput("load_datasets"),
-                      box(width=2,
-                          actionButton("browser", "debug")
-                      )
+                      infoBoxOutput("load_datasets")
                     ),
                     #------------------------------ Tabs 1 Data - fluid row 2 -------------------------------------
                     fluidRow(
@@ -112,19 +114,15 @@ app_ui <- function(request) {
                         height = 100,
                         selectInput('data_source', 'Select Data Source', 
                                     list(
-                                      "R Data Frame" = "data_frame",
-                                      "R Time Series" = "time_series",
-                                      "Installed Package Dataset" = "inst_pack",
-                                      "Import CSV File" = "import"
+                                      "In-memory data" = "data_frame",
+                                      "Import CSV file" = "import"
                                     ),
                                     selected = "data_frame"
                         )
                       ),
                       box(width =  4, 
                           height = 100,
-                          conditionalPanel(condition = "input.data_source.includes('data_frame') || 
-                                       input.data_source.includes('inst_pack') || 
-                                       input.data_source.includes('time_series')",
+                          conditionalPanel(condition = "input.data_source.includes('data_frame')",
                                            uiOutput("df_list")
                           ),
                           conditionalPanel(condition = "input.data_source == 'import'",
@@ -327,7 +325,7 @@ app_ui <- function(request) {
                             ####Parameters from model
                             actionButton("submit1", "Submit")
                     ),
-                    hidden(p(id='sim_anchor',''))
+                    p(id='sim_anchor','')
                     )
                   )
         
@@ -405,7 +403,6 @@ golem_add_external_resources <- function() {
   # library(shinydashboard)
   # library(shinydashboardPlus)
   addResourcePath('www', system.file('app/www', package = 'tsim'))
-  model_list <<- unlist(strsplit(model_list,'.R'))
   # Load packages --------------------------------------------------------------------
   #set.seed('1')
   #initiation of packages thanks to https://gist.github.com/benmarwick/5054846

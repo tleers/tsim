@@ -50,7 +50,14 @@ Imports:
     pool,
     tsibble,
     sparsevar,
-    ggridges
+    ggridges,
+    pkgload,
+    matrixcalc,
+    stringr,
+    VARshrink,
+    mlVAR,
+    roxygen2,
+    mvtnorm
 RoxygenNote: 6.1.1
 Suggests: 
     testthat (>= 2.1.0),
