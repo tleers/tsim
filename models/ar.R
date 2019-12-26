@@ -90,6 +90,15 @@ relevantModelParameters.arest<-function(tmod){
   ))
 }
 
+currentModelParameters.arest <-function(tmod){
+  return(list(phi=current_phi_input(),
+              inno=current_inno_input())
+  )
+}
+
+currentModelParameters.ar <- currentModelParameters.arest
+
+
 relevantModelParameters.ar <- relevantModelParameters.arest
 
 
@@ -129,7 +138,7 @@ computeData.ar <-function(nVar,
   }
   
   #Generate errors
-  innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
+  innovations <- mvtnorm::rmvnorm(time+burn,rep(0,nVar),inno)
   
   #Create empty matrix
   U <- matrix(innovations, time + burn, nVar)
@@ -149,6 +158,7 @@ computeData.ar <-function(nVar,
   return(Y)
 }
 
+computeData.arest <- computeData.ar
 
 ####Model fit function----
 modelData.ar <- function(model, dataset,lagNum,index_vars = NULL) {

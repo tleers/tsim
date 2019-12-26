@@ -28,6 +28,13 @@ relevantModelParameters.varest<-function(tmod){
   ))
 }
 
+currentModelParameters.varest <-function(tmod){
+  return(list(phi=current_phi_input(),
+              inno=current_inno_input())
+  )
+}
+currentModelParameters.var <- currentModelParameters.varest
+
 relevantModelParameters.var <- relevantModelParameters.varest
 
 
@@ -68,7 +75,7 @@ computeData.var <-function(nVar,
   }
   
   #Generate errors
-  innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
+  innovations <- mvtnorm::rmvnorm(time+burn,rep(0,nVar),inno)
   
   #Create empty matrix
   U <- matrix(innovations, time + burn, nVar)

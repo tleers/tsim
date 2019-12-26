@@ -114,7 +114,7 @@ app_ui <- function(request) {
                         height = 100,
                         selectInput('data_source', 'Select Data Source', 
                                     list(
-                                      "In-memory data" = "data_frame",
+                                      "In-memory" = "data_frame",
                                       "Import CSV file" = "import"
                                     ),
                                     selected = "data_frame"
@@ -146,7 +146,7 @@ app_ui <- function(request) {
                                                           '"'),
                                              circle = TRUE, status = "danger", 
                                              icon = icon("file-text", lib = "font-awesome"), width = "300px",
-                                             tooltip = tooltipOptions(title = "Click to set csv file parameters !")
+                                             tooltip = tooltipOptions(title = "Click to set csv file parameters!")
                                            )
                           )
                       ),
@@ -320,7 +320,10 @@ app_ui <- function(request) {
                               max = 1,
                               step = 0.01
                             ),
-                            uiOutput('num_var_sim'),
+                            conditionalPanel(
+                              condition="input.select_simulation_parameter_origin == 'Manual'",
+                              uiOutput('num_var_sim')
+                            ),
                             uiOutput('num_tp_sim'),
                             ####Parameters from model
                             actionButton("submit1", "Submit")

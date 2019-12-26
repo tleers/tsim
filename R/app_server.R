@@ -13,6 +13,8 @@ app_server <- function(input, output, session) {
   for(i in 1:length(models)){
     source(models[i],local=TRUE)
   }
+  source('R/utils_server.R',local=TRUE)
+  print(modelData.var)
   print(models)
   model_list <- dir('models')
   model_list <- unlist(strsplit(model_list,'.R'))
@@ -322,7 +324,7 @@ app_server <- function(input, output, session) {
     if(input$data_source == "data_frame" & length(prev_table$data_frame_list) != 0){
       df_view <- NULL
       prev_table$df_name <- input$df_to_load
-      df_view <- suppressWarnings(get0(input$df_to_load))
+      df_view <- suppressWarnings(get(input$df_to_load))
       if(length(class(df_view)) > 1 & "data.frame" %in% class(df_view)){
         prev_table$class <- "data.frame"
         df_view <- as.data.frame(df_view)
@@ -333,25 +335,6 @@ app_server <- function(input, output, session) {
         prev_table$class <- class(df_view)
         df_view <- as.data.frame(df_view)
       }
-    } else if(input$data_source == "time_series" & length(prev_table$time_series_list) != 0){
-      df_view <- NULL
-      prev_table$df_name <- input$df_to_load
-      input_df$ts_obj <- get(input$df_to_load)
-      df_view <- get(input$df_to_load)
-      if(is.mts(df_view)){
-        df_view <- data.frame(date=time(df_view), as.matrix(df_view))
-      } else if(is.ts(df_view)){
-        df_view <- data.frame(date=time(df_view), as.matrix(df_view))
-        names(df_view) <- c("date", prev_table$df_name)
-      }
-      if(length(class(input_df$ts_obj)) > 1 & "ts" %in% class(input_df$ts_obj)){
-        prev_table$class <- "ts"
-      } else if(length(class(input_df$ts_obj)) > 1){
-        prev_table$class <- class(input_df$ts_obj)[1]
-      } else{
-        prev_table$class <- class(input_df$ts_obj)
-      }
-      # Loading from installed package
     } else if(input$data_source == "import" & !is.null(prev_table$file_path)){
       df_view <- NULL
       prev_table$class <- NULL
@@ -406,29 +389,17 @@ app_server <- function(input, output, session) {
         temp <- NULL    
       }
       if(is.null(input_df$df_list)){
-        if(prev_table$class != "ts"){
-          input_df$df_list <- list(df_tbl_view())
-        } else {
-          input_df$df_list <- list(input_df$ts_obj)
-        }
+        input_df$df_list <- list(df_tbl_view())
         input_df$df_class <- list(type)
         
       } else {
-        if(prev_table$class != "ts"){
-          input_df$df_list[[length(input_df$df_list) + 1]] <- df_tbl_view()
-        } else {
-          input_df$df_list[[length(input_df$df_list) + 1]] <- input_df$ts_obj
-        }
+        input_df$df_list[[length(input_df$df_list) + 1]] <- df_tbl_view()
         input_df$df_class[[length(input_df$df_list)]] <- type
       }
       names(input_df$df_list)[length(input_df$df_list)] <- name
       input_df$names_list <- names(input_df$df_list)
     } else{
-      if(prev_table$class != "ts"){
-        input_df$df_list[[which(names(input_df$df_list) == name)]] <- df_tbl_view()
-      } else {
-        input_df$df_list[[which(names(input_df$df_list) == name)]] <- input_df$ts_obj
-      }
+      input_df$df_list[[which(names(input_df$df_list) == name)]] <- df_tbl_view()
       input_df$df_class[[which(names(input_df$df_list) == name)]] <- type
     }
   })
@@ -609,7 +580,7 @@ app_server <- function(input, output, session) {
       "Select parameter estimate source",
       choices=c('Manual',
                 'Active dataset'),
-      selected=ifelse(!is.null(input_df$data_name),'Active dataset','Manual'),
+      selected='Manual',#ifelse(!is.null(input_df$data_name),'Active dataset','Manual'),
       multiple = FALSE
     )
   })
@@ -676,6 +647,30 @@ app_server <- function(input, output, session) {
     input_df$df
   })
   
+  
+  numVarsData<-reactive({
+    if(!is.null(input$select_dataset_id_var) && !is.null(input_df$df)){
+      if(input$select_dataset_id_var != 'None'){
+        ncol(input_df$df)-1
+      } else {
+        ncol(input_df$df)
+      }
+    } else if (!is.null(input_df$df)){
+      ncol(input_df$df)
+    }
+  })
+  
+  observeEvent({
+    input$select_simulation_parameter_origin
+  },{
+    if(input$select_simulation_parameter_origin!='Manual'){
+      updateNumericInput(session,
+                        'nVar',
+                        label="Number of variables:",
+                        value=numVarsData()
+                        )
+    }
+  })
   
   observeEvent({input$data_option
     input_df$df
@@ -1251,22 +1246,23 @@ app_server <- function(input, output, session) {
     UseMethod('computeDataArgs',model)
   }
   
+  
   tmod <- reactive({
     tmod<-do.call(modelData,modelDataArgs(input$selection1))
     tmod
   })
     
   mod_params <- reactive({
-    if(!is.null(tmod)){
-    mod_params<-relevantModelParameters(tmod())
+    if(!is.null(tmod) && input$select_simulation_parameter_origin != 'Manual'){
+      mod_params<-relevantModelParameters(tmod())
+    } else {
+      mod_params<-currentModelParameters(input$selection1)
     }
     print(mod_params)
     mod_params
   })
   
-  relevantModelParameters<-function(tmod){
-    UseMethod('relevantModelParameters',tmod)
-  }
+
   
 
   

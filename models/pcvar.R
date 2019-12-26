@@ -61,6 +61,14 @@ relevantModelParameters.pcvar<-function(tmod){
   ))
 }
 
+currentModelParameters.pcvar<-function(tmod){
+  return(list(phi=current_phi_input(),
+              inno=current_inno_input(),
+              lm=current_lm_input()
+  ))
+}
+
+
 ####Name function-----
 modelName.pcvar<-function(model){
   return('Principal Component Vector Autoregression')
@@ -82,7 +90,7 @@ computeData.pcvar <- function(nVar,
   loading_matrix <- mod_vars$lm
   
   #Generate errors
-  innovations <- rmvnorm(time+burn,rep(0,nVar),inno)
+  innovations <- mvtnorm::rmvnorm(time+burn,rep(0,nVar),inno)
   
   #Create empty matrix
   U <- matrix(innovations, time + burn, nVar)
@@ -203,7 +211,7 @@ updated_lm <- reactive({
     rownames(lm_output) <- colnames(filedata_updated())
     print(lm_output)
   }else if(!is.null(input_df$df)){
-    lm_output <- matrix(0,ncol(filedata_updated()),ncol(filedata_updated()))
+    lm_output <- matrix(0,input$nVar,input$nVar)
     diag(lm_output)<-1
     colnames(lm_output) <- c(paste("V",1:ncol(lm_output),sep=""))
     rownames(lm_output) <- c(paste("V",1:nrow(lm_output),sep=""))
