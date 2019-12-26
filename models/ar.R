@@ -287,3 +287,71 @@ simRenderE.ar<-function(input, output, session, input_df, r, estParams){
 #       max = 1,
 #       step = 0.1
 #     ),
+
+
+transitionMatrixUI <- function(id, label="transition_matrix"){
+  boxPlus(
+    enable_sidebar=FALSE,
+    solid_header=TRUE,
+    collapsible=TRUE,
+    status="success",
+    title='Transition Matrix',
+    rHandsontableOutput("phi"),
+    fileInput(
+      'phifile',
+      'Upload Phi matrix',
+      multiple = FALSE,
+      accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    ),
+    downloadLink("downloadPhiDataset", "Download Phi Matrix"),
+    sidebar_width = 25,
+    sidebar_start_open = TRUE,
+    sidebar_content = tagList(
+      numericInput(
+        "nDiagPhi",
+        "Diagonal coefficients:",
+        .1,
+        min = 0.1,
+        max = 1,
+        step = 0.1
+      )
+    )
+  )
+}
+innovationMatrixUI <- function(id, label="innovation_matrix"){
+  boxPlus(
+    enable_sidebar=FALSE,
+    solidheader=TRUE,
+    collapsible=TRUE,
+    status="success",
+    title="Innovation Matrix",
+    rHandsontableOutput("inno"),
+    fileInput(
+      'innofile',
+      'Upload Innovation matrix',
+      multiple = FALSE,
+      accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    ),
+    downloadLink("downloadInnoDataset", "Download Innovation Matrix"),
+    sidebar_width = 25,
+    sidebar_start_open = TRUE,
+    sidebar_content = tagList(
+      numericInput(
+        "nInnoVar",
+        "Diagonal coefficients",
+        .01,
+        min = 0.01,
+        max = 10,
+        step = 0.1
+      ),
+      numericInput(
+        "nInnoCovar",
+        "Off-diagonal coefficients",
+        .01,
+        min = 0.01,
+        max = 10,
+        step = 0.1
+      )
+    )
+  )
+}

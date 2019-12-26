@@ -3,9 +3,9 @@
 #' @import xtable
 app_server <- function(input, output, session) {
   
-  observeEvent(input$browser,{
-    browser()
-  })
+  # observeEvent(input$browser,{
+  #   browser()
+  # })
   
   #------------------------------ Dataset Init -----------------------
   

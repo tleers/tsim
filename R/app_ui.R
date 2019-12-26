@@ -8,6 +8,8 @@
 #' @import shinyWidgets
 #' @import plotly
 #' @import rhandsontable
+#' @import shinyjs
+
 app_ui <- function(request) {
   
   tagList(
@@ -26,10 +28,11 @@ app_ui <- function(request) {
         sidebarMenuOutput("menu")
       ),
       rightsidebar=rightSidebar(
+        icon='ellipsis-h',
         rightSidebarTabContent(
           id=1,
           title="",
-          icon='ar',
+          icon='hourglass',
           active=TRUE,
           conditionalPanel(
             condition="input.tabs == 'tpestimation'",
@@ -44,12 +47,17 @@ app_ui <- function(request) {
                         label='Choose comparison model 2',
                         choices=model_list,
                         selected='var'
+            ),
+            conditionalPanel(
+              condition="input.tp_model1 == 'pcvar'"
+              #uiOutput('ncomp_pca')
             )
           )
         ),
         rightSidebarTabContent(
           id=2,
           title="",
+          icon='cogs',
           active=FALSE,
           conditionalPanel(
             condition="input.tabs == 'tpestimation'",
@@ -316,92 +324,10 @@ app_ui <- function(request) {
                             ),
                             uiOutput('num_var_sim'),
                             uiOutput('num_tp_sim'),
-                            uiOutput('ncomp_pca'),
                             ####Parameters from model
                             actionButton("submit1", "Submit")
                     ),
-                    #uiOutput('sim_params')
-                    boxPlus(
-                      enable_sidebar=TRUE,
-                      solid_header=TRUE,
-                      collapsible=TRUE,
-                      status="success",
-                      title='Transition Matrix',
-                      rHandsontableOutput("phi"),
-                      fileInput(
-                        'phifile',
-                        'Upload Phi matrix',
-                        multiple = FALSE,
-                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-                      ),
-                      downloadLink("downloadPhiDataset", "Download Phi Matrix"),
-                      sidebar_width = 25,
-                      sidebar_start_open = TRUE,
-                      sidebar_content = tagList(
-                        numericInput(
-                          "nDiagPhi",
-                          "Diagonal coefficients:",
-                          .1,
-                          min = 0.1,
-                          max = 1,
-                          step = 0.1
-                        )
-                      )
-                    ),
-                    boxPlus(
-                      enable_sidebar=TRUE,
-                      solidheader=TRUE,
-                      collapsible=TRUE,
-                      status="success",
-                      title="Innovation Matrix",
-                      rHandsontableOutput("inno"),
-                      fileInput(
-                        'innofile',
-                        'Upload Innovation matrix',
-                        multiple = FALSE,
-                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-                      ),
-                      downloadLink("downloadInnoDataset", "Download Innovation Matrix"),
-                      sidebar_width = 25,
-                      sidebar_start_open = TRUE,
-                      sidebar_content = tagList(
-                        numericInput(
-                          "nInnoVar",
-                          "Diagonal coefficients",
-                          .01,
-                          min = 0.01,
-                          max = 10,
-                          step = 0.1
-                        ),
-                        numericInput(
-                          "nInnoCovar",
-                          "Off-diagonal coefficients",
-                          .01,
-                          min = 0.01,
-                          max = 10,
-                          step = 0.1
-                        )
-                      )
-                    ),
-                    boxPlus(
-                      enable_sidebar=TRUE,
-                      solidheader=TRUE,
-                      collapsible=TRUE,
-                      status="success",
-                      title="Loading Matrix",
-                      rHandsontableOutput("loading_matrix"),
-                      fileInput(
-                        'lmfile',
-                        'Upload Loading matrix',
-                        multiple = FALSE,
-                        accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-                      ),
-                      downloadLink("downloadLMDataset", "Download Loading Matrix"),
-                      sidebar_width = 25,
-                      sidebar_start_open = TRUE,
-                      sidebar_content = tagList(
-                        )
-                      )
+                    hidden(p(id='sim_anchor',''))
                     )
                   )
         

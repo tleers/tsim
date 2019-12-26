@@ -12,10 +12,6 @@ app_server <- function(input, output, session) {
   }
   model_list <<- unlist(strsplit(model_list,'.R'))
   
-  observeEvent(input$browser,{
-    browser()
-  })
-  
   #------------------------------ Dataset Init -----------------------
   data(alt_data95)
   data(sim_var)
@@ -188,37 +184,7 @@ app_server <- function(input, output, session) {
   })
   
   
-  output$loading_matrix <- renderRHandsontable({
-    if(!is.null(updated_lm())){
-      rhandsontable(updated_lm())
-    }
-  })
-  
-  updated_lm <- reactive({
-    if(!is.null(input_df$df) && (input$select_simulation_parameter_origin != 'Manual')){
-      lm_output <- mod_params()$lm
-      colnames(lm_output) <- colnames(filedata_updated())
-      rownames(lm_output) <- colnames(filedata_updated())
-      print(lm_output)
-    }else if(!is.null(input_df$df)){
-      lm_output <- matrix(0,ncol(filedata_updated()),ncol(filedata_updated()))
-      diag(lm_output)<-1
-      colnames(lm_output) <- c(paste("V",1:ncol(lm_output),sep=""))
-      rownames(lm_output) <- c(paste("V",1:nrow(lm_output),sep=""))
-    } else {
-      lm_output <- NULL
-    }
-    lm_output
-  })  
-  
-  
-  current_lm_input <- reactive({
-    if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dlm <- hot_to_r(input$loading_matrix)
-    } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dlm <- hot_to_r(input$loading_matrix)
-    }
-  })
+
   
   #-----------------------------Notification panel---------------
   output$info_top <- renderUI({
@@ -1334,6 +1300,83 @@ app_server <- function(input, output, session) {
       }
     }
   })
+  
+
+  # observeEvent({
+  #   input$selection1},{
+  #     if(!is.null(get0(prev_sim))){
+  #       prev_sim <- reactive({
+  #         input$selection1
+  #       })
+  #     } else {
+  #       prev_sim <- function(){
+  #         'ar'
+  #       }
+  #     }
+  # 
+  # })
+  
+  prev_sim <<- reactiveVal(NULL)
+  observeEvent({input$selection1},{
+    
+    if(!is.null(prev_sim())){
+      print('exists')
+      print(prev_sim())
+      removeUI(selector=paste0('div#',prev_sim(),'_sim_output'))
+    }
+    #model_specific_sim_output <- 
+    insertUI(
+    selector='#sim_anchor',
+    where='afterEnd',
+    ui=uiOutput(paste0(input$selection1,'_sim_output'))
+    )
+    prev_sim(input$selection1)
+    # model_ui_list <- getModelUIList(input$selection1)
+    # for(i in 1:length(model_ui_list)){
+    #   args <- list()
+    #   
+    #   for(j in 1:length(model_ui_list[[i]][[2]])){
+    #     args[[j]] <- get(model_ui_list[[i]][[2]])
+    #   }
+    #    
+    #   do.call(get(model_ui_list[[i]][[1]]),model_ui_list[[i]][[2]])
+    # }
+  
+  })
+  
+  output$pcvar_sim_output <- renderUI({
+    tagList(
+    transitionMatrixUI(ns(session)$ns,'phi'),
+    innovationMatrixUI(ns(session)$ns,'inno'),
+    loadingMatrixUI(ns(session)$ns,'loading_matrix')
+    )
+  })
+ 
+  output$ar_sim_output <- renderUI({
+    tagList(
+    transitionMatrixUI(ns(session)$ns,'phi'),
+    innovationMatrixUI(ns(session)$ns,'inno')
+    )
+    })
+  
+  output$var_sim_output <- renderUI({
+    tagList(
+    transitionMatrixUI(ns(session)$ns,'phi'),
+    innovationMatrixUI(ns(session)$ns,'inno')
+    )
+    })
+  # getModelUIList.pcvar <- function(model, label){
+  #   return(list(
+  #   list("loadingMatrixUI",list("ns(session)$ns","label"))
+  #   )
+  #   )
+  # }   
+  # 
+  # getModelUIList <- function(model, ...){
+  #   class(model)<-tolower(model)
+  #   UseMethod('getModelUIList',model)
+  # }
+    
   
   id_var <- reactive({
     input$select_dataset_id_var

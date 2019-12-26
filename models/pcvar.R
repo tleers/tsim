@@ -48,7 +48,8 @@ modelDataArgs.pcvar <- function(model){
       filedata_updated() %>% standardize.popsd,
       selectedLagNum(),
       loaded_dataset_index_variable(),
-      input$ncomp)
+      ncol(filedata_updated())#input$ncomp)
+  )
   )
 }
 
@@ -161,3 +162,62 @@ altpredict.pcvar <- function(model,data){
   }
   return(list(pred,se))
 }
+
+
+#SHINY MODULES FOR UI
+##UI: Loading matrix----
+
+loadingMatrixUI <- function(id, label="loading_matrix"){
+  boxPlus(
+    enable_sidebar=TRUE,
+    solidheader=TRUE,
+    collapsible=TRUE,
+    status="success",
+    title="Loading Matrix",
+    rHandsontableOutput(label),
+    fileInput(
+      'lmfile',
+      'Upload Loading matrix',
+      multiple = FALSE,
+      accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    ),
+    downloadLink("downloadLMDataset", "Download Loading Matrix"),
+    sidebar_width = 25,
+    sidebar_start_open = TRUE,
+    sidebar_content = tagList(
+    )
+  )
+}
+
+##Server: Loading matrix----
+output$loading_matrix <- renderRHandsontable({
+  if(!is.null(updated_lm())){
+    rhandsontable(updated_lm())
+  }
+})
+
+updated_lm <- reactive({
+  if(!is.null(input_df$df) && (input$select_simulation_parameter_origin != 'Manual')){
+    lm_output <- mod_params()$lm
+    colnames(lm_output) <- colnames(filedata_updated())
+    rownames(lm_output) <- colnames(filedata_updated())
+    print(lm_output)
+  }else if(!is.null(input_df$df)){
+    lm_output <- matrix(0,ncol(filedata_updated()),ncol(filedata_updated()))
+    diag(lm_output)<-1
+    colnames(lm_output) <- c(paste("V",1:ncol(lm_output),sep=""))
+    rownames(lm_output) <- c(paste("V",1:nrow(lm_output),sep=""))
+  } else {
+    lm_output <- NULL
+  }
+  lm_output
+})  
+
+
+current_lm_input <- reactive({
+  if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
+    dlm <- hot_to_r(input$loading_matrix)
+  } else if (input$select_simulation_parameter_origin == 'Manual'){
+    dlm <- hot_to_r(input$loading_matrix)
+  }
+})
