@@ -602,18 +602,14 @@ searchTP <- function(nVar,
       print(t)
       print(stepsize)
       
-      
-      
-      
-      
       #mod <- mod * -1
       if (abs(stepsize) != 1 && abs(stepsize) * stepsize_scaler < 1) {
         stepsize <- round(stepsize * mod * stepsize_scaler)
       }
       
-      if (stepsize <= 1) {
-        stepsize <- 1
-      }
+      # if (stepsize <= 1) {
+      #   stepsize <- 1
+      # }
       
       found = FALSE
     }
@@ -624,9 +620,16 @@ searchTP <- function(nVar,
   }
   
   if (found2 == FALSE | is.null(backup)) {
-    backup <- paste0('No result in ', max_iter, ' iterations.')
+    backup <- paste0('No outcome.')
+    showNotification(paste0('No outcome in ',max_iter,' iterations. 
+                            Try increasing the maximum number of iterations or the stepsize.'),
+                     type='error',
+                     duration=NULL)
   } else if (found == FALSE && !is.null(backup)) {
     t <- backup + stepsize
+    showNotification(paste0('Recommended number of time points is ',backup,' in ',max_iter,' iterations.'),
+                     type='message',
+                     duration=5)
   }
   return(list(
     backup,

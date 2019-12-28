@@ -4,10 +4,11 @@
 #' @import ggridges
 #' @import shinydashboardPlus
 #' @import DT
+#' @import qgraph
 app_server <- function(input, output, session) {
-  # observeEvent(input$browser,{
-  #   browser()
-  # })
+  observeEvent(input$browser,{
+    browser()
+  })
   models <- dir('models')
   models <- paste0('models/', models)
   for(i in 1:length(models)){
@@ -63,21 +64,34 @@ app_server <- function(input, output, session) {
   output$menu <- renderMenu({
     sidebarMenu(
       id="tabs",
-      uiOutput('data_select_top'),
       menuItem("Dataset", 
                tabName = "data", 
                icon = icon("table"), 
                startExpanded = TRUE,
+               #conditionalPanel(condition="is.null(input.input_df)==FALSE",
+               uiOutput('data_select_top'),
+               #),
                menuSubItem("Load", tabName = "data1"),
-               menuSubItem("Initialize", tabName = "data2")
+               menuSubItem("Initialize",tabName = "data2")
       ),
-      menuItem("Data Simulation", icon = icon("database"),tabName = "sim"),
+      menuItem("Data Simulation", icon = icon("database"),tabName = "sim",
+               badgeLabel = ifelse(is.null(input$select_dataset_id_var),"X dataset","dataset"),
+               badgeColor = ifelse(is.null(input$select_dataset_id_var),"red","green")
+               ),
       menuItem("Analysis", icon = icon("microscope"), tabName = "analysis",
-               menuSubItem("Model Comparison", tabName = "modelcomparison"),
+               #menuSubItem("Model Comparison", tabName = "modelcomparison"),
                menuSubItem("Timepoint Estimation", tabName="tpestimation")
       ),
       menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis")
     )
+  })
+  
+  observeEvent({input$tabs},{
+    if (input$tabs == "tpestimation") {
+      shinyjs::addClass(selector="body",class="control-sidebar-open")
+    } else {
+      shinyjs::removeClass(selector="body",class="control-sidebar-open")    
+      }
   })
   
   #DOWNLOAD
@@ -147,7 +161,7 @@ app_server <- function(input, output, session) {
       colnames(phi_output) <- colnames(filedata_updated())
       rownames(phi_output) <- colnames(filedata_updated())
     } else if(input$select_simulation_parameter_origin == 'Manual'){
-      phi_output<-computePhi(input$nVar, .5, .3)
+      phi_output<-computePhi(input$nVar, .2, .1)
       colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
       rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep=""))
     } else {
@@ -162,7 +176,7 @@ app_server <- function(input, output, session) {
       colnames(inno_output) <- colnames(filedata_updated())
       rownames(inno_output) <- colnames(filedata_updated())
     } else if(input$select_simulation_parameter_origin == 'Manual'){
-      inno_output<-computeSigma(input$nVar, 1,.1)
+      inno_output<-computeSigma(input$nVar, .5,.1)
       colnames(inno_output) <- c(paste("V",1:ncol(inno_output),sep=""))
       rownames(inno_output) <- c(paste("V",1:nrow(inno_output),sep=""))
     } else {
@@ -177,22 +191,22 @@ app_server <- function(input, output, session) {
   #-----------------------------Notification panel---------------
   output$info_top <- renderUI({
     
-    dropdownMenu(type="notifications",
-                 notificationItem(
-                   text = ifelse(is.null(input$select_df),
-                                 'No dataset loaded',
-                                 paste0('Dataset loaded: ',input$select_df)
-                   ),
-                   icon("th")
-                 ),
-                 notificationItem(
-                   text = ifelse(is.null(input$current_dataset_id_value) | input$current_dataset_id_value == 'None',
-                                 'No subject ID selected',
-                                 paste0('Subject ID selected: ', input$current_dataset_id_value)
-                   ),
-                   icon("person")
-                 )
-    )
+    # dropdownMenu(type="notifications",
+    #              notificationItem(
+    #                text = ifelse(is.null(input$select_df),
+    #                              'No dataset loaded',
+    #                              paste0('Dataset loaded: ',input$select_df)
+    #                ),
+    #                icon("th")
+    #              ),
+    #              notificationItem(
+    #                text = ifelse(is.null(input$current_dataset_id_value) | input$current_dataset_id_value == 'None',
+    #                              'No subject ID selected',
+    #                              paste0('Subject ID selected: ', input$current_dataset_id_value)
+    #                ),
+    #                icon("person")
+    #              )
+    # )
   })
   
   #------------------------------ Data Tab 1 - DT1 ---------------------------------------------###############################
@@ -201,14 +215,14 @@ app_server <- function(input, output, session) {
   
   output$in_memory_df <- renderValueBox({
     valueBox(
-      length(prev_table$data_frame_list), "In Memory Data Frame", icon = icon("superscript"),
+      length(prev_table$data_frame_list), "In-memory data", icon = icon("superscript"),
       color = "light-blue"
     )
   })
   
   output$load_datasets <- renderValueBox({
     valueBox(
-      ifelse(is.null(input_df$df_list), 0, length(input_df$df_list)), "Loaded Datasets", icon = icon("list"),
+      ifelse(is.null(input_df$df_list), 0, length(input_df$df_list)), "Loaded datasets", icon = icon("list"),
       color = "maroon"
     )
   })
@@ -547,15 +561,28 @@ app_server <- function(input, output, session) {
   output$num_tp_sim <- renderUI({
     numericInput(
       "nTime",
-      "Number of timepoints:",
-      if(is.null(input_df$df)){
-        15
-      } else if(input$current_dataset_id_value != 'None'){
-        nrow(input_df$df %>% dplyr::filter_at(id_var_number(), all_vars(.==input$current_dataset_id_value)))
-      } else {
-        nrow(input_df$df)
-      },
+      "Number of time points:",
+      # if(is.null(input_df$df)){
+      #   15
+      # } else if(input$current_dataset_id_value != 'None'){
+      #   nrow(input_df$df %>% dplyr::filter_at(id_var_number(), all_vars(.==input$current_dataset_id_value)))
+      # } else if (!is.null(active_df$df)){
+      #   nrow(input_df$df)
+      # } else {
+      #   
+      # },
+      20,
       min = 20,
+      max = 10000
+    )
+  })
+  
+  output$num_searchtp_sim <- renderUI({
+    numericInput(
+      "nTime_tp",
+      "Starting time point:",
+      20,
+      min = 15,
       max = 10000
     )
   })
@@ -846,13 +873,25 @@ app_server <- function(input, output, session) {
     if((input$tabs == "data2" | input$tabs == "vis") & is.null(input_df$df_list)){
       showModal(modalDialog(
         title = "Warning - No Loaded Dataset",
-        HTML(paste("There is no any loaded dataset ",
+        HTML(paste("There is no loaded dataset ",
                    "Please select input and load it", 
                    sep = "<br/>")
         ), size = "s"
       ))
     }
   })
+  
+  # observeEvent(input$tabs,{
+  #   if((input$tabs == "tpestimation" | input$tabs == "sim") & is.null(input_df$df_list)){
+  #     showModal(modalDialog(
+  #       title = "Warning - No Loaded Dataset",
+  #       HTML(paste("There is no loaded dataset ",
+  #                  "Please select input and load it", 
+  #                  sep = "<br/>")
+  #       ), size = "s"
+  #     ))
+  #   }
+  # })
   #------------------------------ Data tab 2 - End ------------------------------------- 
   #------------------------------ Visualization Tab Start -------------------------------------  
   # Selecting the Dataset
@@ -1533,7 +1572,7 @@ app_server <- function(input, output, session) {
     
     tp <- searchTP(
       input$nVar,
-      input$nTime,
+      time_searchtp(),
       input$error,
       input$selection1,
       tp_selected_model1(),
@@ -1552,7 +1591,7 @@ app_server <- function(input, output, session) {
     if(!is.null(tp)){
       pldf<-tp[[2]][[1]]
       output$tp <- renderUI({
-        valueBox(tp[[1]],'# timepoints at which MSE of complexer model is lower than simpler model', 
+        valueBox(tp[[1]],'recommended time points.', 
                  icon = icon('hourglass'),
                  width=8,
                  color="green")
@@ -1560,21 +1599,20 @@ app_server <- function(input, output, session) {
       
       if(!is.null(tp[[2]][[2]])){
         fold_df <- tp[[2]][[2]]
-        #write.csv(fold_df,paste0('fold_df_',input$select_df,'_',now(),'_.csv'))
-        write.csv(fold_df,paste0('fold_df_',input$select_df,
-                                 '_',lubridate::day(lubridate::today()),
-                                 '_',lubridate::month(lubridate::today()),
-                                 '_',lubridate::hour(lubridate::now()),
-                                 '_',lubridate::minute(lubridate::now()),
-                                 '_',lubridate::second(lubridate::now()),
-                                 '_.csv'))
-        write.csv(pldf,paste0('avg_df',input$select_df,
-                              '_',lubridate::day(lubridate::today()),
-                              '_',lubridate::month(lubridate::today()),
-                              '_',lubridate::hour(lubridate::now()),
-                              '_',lubridate::minute(lubridate::now()),
-                              '_',lubridate::second(lubridate::now()),
-                              '_.csv'))
+        # write.csv(fold_df,paste0('fold_df_',input$select_df,
+        #                          '_',lubridate::day(lubridate::today()),
+        #                          '_',lubridate::month(lubridate::today()),
+        #                          '_',lubridate::hour(lubridate::now()),
+        #                          '_',lubridate::minute(lubridate::now()),
+        #                          '_',lubridate::second(lubridate::now()),
+        #                          '_.csv'))
+        # write.csv(pldf,paste0('avg_df',input$select_df,
+        #                       '_',lubridate::day(lubridate::today()),
+        #                       '_',lubridate::month(lubridate::today()),
+        #                       '_',lubridate::hour(lubridate::now()),
+        #                       '_',lubridate::minute(lubridate::now()),
+        #                       '_',lubridate::second(lubridate::now()),
+        #                       '_.csv'))
         
       }
       
@@ -1582,10 +1620,6 @@ app_server <- function(input, output, session) {
                    tp_selected_model2())
       output$tp_last_1 <- renderUI({
         valueBox(tp[[3]],
-                 # fold_df %>% 
-                 #          dplyr::filter(model==modl[1]) %>% 
-                 #          tail(n=1) %>% 
-                 #          dplyr::select(mse),
                  paste0(toupper(error_metric),' of ', toupper(tp_selected_model1()),' at timepoint ',tp[[1]]),
                  icon = icon('hourglass'),
                  width=8,
@@ -1593,10 +1627,6 @@ app_server <- function(input, output, session) {
       })
       output$tp_last_2 <- renderUI({
         valueBox(tp[[4]],
-                 # fold_df %>%
-                 #          dplyr::filter(model==modl[2]) %>%
-                 #          tail(n=1) %>%
-                 #          dplyr::select(mse),
                  paste0(toupper(error_metric),' of ', toupper(tp_selected_model2()),' at timepoint ',tp[[1]]),
                  icon = icon('hourglass'),
                  width=8,color="red")
@@ -1612,7 +1642,7 @@ app_server <- function(input, output, session) {
             plotlyOutput("mse_fold_plot")
           ),
           boxPlus(
-            title = paste0('Density plot of average ',toupper(error_metric),'per model across time points'),
+            title = paste0('Density plot of average ',toupper(error_metric),' per model across time points'),
             closable=TRUE,
             width=NULL,
             collapsible=TRUE,
@@ -1707,6 +1737,7 @@ app_server <- function(input, output, session) {
           tbl_tmp <- table(pldf$tl)
           pldf_binned <- pldf %>% dplyr::arrange(tl)
           tmp <- NULL
+          #bin some of the observations together
           for (i in 1:nrow(tbl_tmp)){
             if(tbl_tmp[i] < 5){
               tmp<-rbind(tmp,as.integer(names(tbl_tmp)[i]))
@@ -1769,17 +1800,7 @@ app_server <- function(input, output, session) {
               layout(autosize=TRUE)
           }
         })
-        
-        
-        
       }
-      # } else if (fold_df %>% 
-      #            dplyr::filter(model==modl[2]) %>% 
-      #            dplyr::select(mse) == 1){
-      #   
-      #   
-      # }
-      
     }
   })
   
@@ -1787,26 +1808,13 @@ app_server <- function(input, output, session) {
     input$select_tp_distr_mse_fold_plot
   })
   
-  
-  # eventdata <- event_data("plotly_selected")
-  # if(!is.null(eventdata)){
-  #   sel_dat <- fold_df[eventData$key,]
-  # } else {
-  #   sel_dat <- NULL
-  # }
-  # 
-  # p<- ggplot(sel_dat,aes(x=tl,y=mse)) + 
-  #   geom_point(data=sel_dat,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
-  #   #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
-  #   #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
-  #   scale_colour_manual(values = c("Blue", "Red")) +
-  #   theme_classic() +
-  #   scale_y_continuous(limits = c(0, NA))
-  # 
-  # 
-  # ggplotly(p,tooltip="tooltip") %>% 
-  #   layout(autosize=TRUE)
-  
+  time_searchtp <- reactive({
+    if(!is.null(input$nTime_tp)){
+      input$nTime_tp
+    } else {
+      20
+    }
+  })
   
   
   observeEvent({input$submitModelComparison},{
@@ -1910,12 +1918,51 @@ app_server <- function(input, output, session) {
     )
   })
   
+  output$select_network_graph_type <- renderUI({
+    selectInput("select_graph_type","Select graph type",
+                multiple=FALSE,
+                choices = c('glasso','cor'),
+                selected='glasso'
+    )
+  })
+  
+  
+  output$select_network_treshold <- renderUI({
+    selectInput("select_treshold","Select treshold",
+                choices=c('none',
+                          'sig',
+                          'holm',
+                          'hochberg',
+                          'hommel',
+                          'bonferroni',
+                          'BH',
+                          'BY',
+                          'fdr')
+    )
+  })
+  
+  output$select_network_tuning <- renderUI({
+    conditionalPanel(
+      condition="input.select_graph_type == 'glasso'",
+      numericInput("select_tuning","Select tuning",
+                 min=0,
+                 max=1,
+                 step=.01,
+                 value=.1
+    )
+    )
+  })
+  
+  
   output$networkplot <- renderPlot({
     if(!is.null(selected_network_vars())){
       selected_cols <- selected_network_vars()
       d <- input_df$df %>% dplyr::select(selected_cols)
       Q <- qgraph(cor_auto(d,detectOrdinal = FALSE),
-                  graph = "glasso", sampleSize = nrow(d),
+                  graph = input$select_graph_type, 
+                  treshold=input$select_treshold,
+                  tuning=input$select_tuning,
+                  sampleSize = nrow(d),
                   nodeNames = names(d),
                   label.scale = FALSE, label.cex = .8, 
                   legend = TRUE, legend.cex = .5,

@@ -9,28 +9,30 @@
 #' @import plotly
 #' @import rhandsontable
 #' @import DT
+#' @import shinyJS
 
 app_ui <- function(request) {
   model_list <- dir('models')
   model_list <- unlist(strsplit(model_list,'.R'))
   
   tagList(
+    shinyjs::useShinyjs(),
     golem_add_external_resources(),
     dashboardPagePlus(
       dashboardHeaderPlus(title = "TS",
                           fixed=FALSE,
                           dropdownMenuOutput('info_top'),
-                          enable_rightsidebar=TRUE#General information button at top-right. 
+                          enable_rightsidebar=TRUE,#General information button at top-right. 
                           #currently only shows:
                           # a) "active" dataset
                           # b) "selected subject ID"
+                          rightSidebarIcon = "ellipsis-h"
       ),
       #------------------------------ Side Bar Function -------------------------------------
       dashboardSidebar(
         sidebarMenuOutput("menu")
       ),
       rightsidebar=rightSidebar(
-        icon='ellipsis-h',
         box(width=2,
             actionButton("browser", "debug")
         ),
@@ -80,7 +82,8 @@ app_ui <- function(request) {
             numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
             numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=20),
             uiOutput('select_stepsize_init_element'),
-            numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8)
+            numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
+            uiOutput('num_searchtp_sim')
           )
         ),
         conditionalPanel(
@@ -382,10 +385,15 @@ app_ui <- function(request) {
                   )),
           tabItem(tabName = "networkanalysis",
                   fluidPage(
-                    box(title='Parameters',
-                        uiOutput('select_network_vars_element')),
-                    box(
-                      plotOutput("networkplot"))
+                    boxPlus(
+                      title='Parameters',
+                      collapsible=TRUE,
+                        uiOutput('select_network_vars_element'),
+                        uiOutput('select_network_graph_type'),
+                        uiOutput('select_network_treshold'),
+                        uiOutput('select_network_tuning')
+                        ),
+                      plotOutput("networkplot")
                   )
           ),
           tabItem(tabName="faq",
