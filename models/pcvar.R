@@ -84,9 +84,24 @@ computeData.pcvar <- function(nVar,
                               mod_vars,
                               ....){
   
-  
+
   inno <- mod_vars$inno
   phi <- mod_vars$phi
+  if(val){
+    if(!validate_phi(phi)){
+      warning("Transition matrix invalid")
+      return(NULL)
+    }
+    
+    if(!validate_inno(inno)){
+      inno<-fix_inno(inno)
+      if(is.null(inno)){
+        warning("Innovation matrix invalid")
+        return(NULL)
+      }
+    }
+  }
+  
   loading_matrix <- mod_vars$lm
   
   #Generate errors
@@ -112,6 +127,9 @@ computeData.pcvar <- function(nVar,
 ####Model fit function----
 modelData.pcvar <- function(model, dataset, lagNum,index_vars = NULL, ncomp=ncol(dataset)) {
   require(psych)
+  if(is.null(ncomp)){
+    ncomp <- ncol(dataset)
+  }
   PCA_varimax<-principal(dataset,
                          nfactors=ncomp,
                          rotate="varimax")
@@ -183,16 +201,16 @@ loadingMatrixUI <- function(id, label="loading_matrix"){
     status="success",
     title="Loading Matrix",
     rHandsontableOutput(label),
-    fileInput(
-      'lmfile',
-      'Upload Loading matrix',
-      multiple = FALSE,
-      accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-    ),
-    downloadLink("downloadLMDataset", "Download Loading Matrix"),
+    # fileInput(
+    #   'lmfile',
+    #   'Upload Loading matrix',
+    #   multiple = FALSE,
+    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    # ),
     sidebar_width = 25,
-    sidebar_start_open = TRUE,
+    sidebar_start_open = FALSE,
     sidebar_content = tagList(
+      downloadLink("downloadLMDataset", "Download Loading Matrix")
     )
   )
 }
@@ -210,7 +228,7 @@ updated_lm <- reactive({
     colnames(lm_output) <- colnames(filedata_updated())
     rownames(lm_output) <- colnames(filedata_updated())
     print(lm_output)
-  }else if(!is.null(input_df$df)){
+  }else if(input$select_simulation_parameter_origin == 'Manual'){
     lm_output <- matrix(0,input$nVar,input$nVar)
     diag(lm_output)<-1
     colnames(lm_output) <- c(paste("V",1:ncol(lm_output),sep=""))

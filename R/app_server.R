@@ -5,6 +5,8 @@
 #' @import shinydashboardPlus
 #' @import DT
 #' @import qgraph
+#' @import viridis
+
 app_server <- function(input, output, session) {
   observeEvent(input$browser,{
     browser()
@@ -30,10 +32,10 @@ app_server <- function(input, output, session) {
   #------------------------------ First User Introduction -----------------------
   
   #Use this for the shinyintrojs - currently not implemented
-  observeEvent(input$help,{
-    introjs(session,
-    )
-  })
+  # observeEvent(input$help,{
+  #   introjs(session,
+  #   )
+  # })
   
   #------------------------------ Global Dataset Parameters -----------------------
   # input_df set initial parameters
@@ -56,7 +58,7 @@ app_server <- function(input, output, session) {
   
   #------------------------------ SideBar Menu -----------------------
   output$data_select_top <- renderUI({
-    selectizeInput(
+    selectInput(
       'select_df', label = "Select active dataset", choices = input_df$names_list
     )
   })
@@ -74,25 +76,27 @@ app_server <- function(input, output, session) {
                menuSubItem("Load", tabName = "data1"),
                menuSubItem("Initialize",tabName = "data2")
       ),
-      menuItem("Data Simulation", icon = icon("database"),tabName = "sim",
-               badgeLabel = ifelse(is.null(input$select_dataset_id_var),"X dataset","dataset"),
-               badgeColor = ifelse(is.null(input$select_dataset_id_var),"red","green")
-               ),
+      menuItem("Data Simulation", icon = icon("database"),tabName = "sim"
+               
+               #ADDING BADGES CAUSES THE TAB MENU TO RELOAD AND THE TAB TO RESET TO INITIAL VALUE
+               # badgeLabel = ifelse(is.null(input$select_dataset_id_var),"X dataset","dataset"),
+               # badgeColor = ifelse(is.null(input$select_dataset_id_var),"red","green")
+      ),
       menuItem("Analysis", icon = icon("microscope"), tabName = "analysis",
-               #menuSubItem("Model Comparison", tabName = "modelcomparison"),
+               menuSubItem("Model Comparison", tabName = "modelcomparison"),
                menuSubItem("Timepoint Estimation", tabName="tpestimation")
       ),
       menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis")
     )
   })
   
-  observeEvent({input$tabs},{
-    if (input$tabs == "tpestimation") {
-      shinyjs::addClass(selector="body",class="control-sidebar-open")
-    } else {
-      shinyjs::removeClass(selector="body",class="control-sidebar-open")    
-      }
-  })
+  # observeEvent({input$tabs},{
+  #   if (input$tabs == "tpestimation") {
+  #     shinyjs::addClass(selector="body",class="control-sidebar-open")
+  #   } else {
+  #     shinyjs::removeClass(selector="body",class="control-sidebar-open")
+  #     }
+  # })
   
   #DOWNLOAD
   output$downloadInnoDataset <- downloadHandler(
@@ -135,9 +139,9 @@ app_server <- function(input, output, session) {
   
   current_inno_input <- reactive({
     if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
+      dinno <- hot_to_r(input$inno)
     } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
+      dinno <- hot_to_r(input$inno)
     }
   })
   
@@ -161,7 +165,15 @@ app_server <- function(input, output, session) {
       colnames(phi_output) <- colnames(filedata_updated())
       rownames(phi_output) <- colnames(filedata_updated())
     } else if(input$select_simulation_parameter_origin == 'Manual'){
-      phi_output<-computePhi(input$nVar, .2, .1)
+      if(input$selection1 %in% c('var','pcvar')){
+        phi_output<-computePhi(input$nVar, .2, .1)
+        if(ncol(phi_output)>1){
+          phi_output[1,2]<-.5
+          phi_output[2,1]<-.45
+        }
+      } else {
+        phi_output<-computePhi(input$nVar, .2, 0)
+      }
       colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
       rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep=""))
     } else {
@@ -183,30 +195,6 @@ app_server <- function(input, output, session) {
       inno_output <- NULL
     }
     inno_output
-  })
-  
-  
-
-  
-  #-----------------------------Notification panel---------------
-  output$info_top <- renderUI({
-    
-    # dropdownMenu(type="notifications",
-    #              notificationItem(
-    #                text = ifelse(is.null(input$select_df),
-    #                              'No dataset loaded',
-    #                              paste0('Dataset loaded: ',input$select_df)
-    #                ),
-    #                icon("th")
-    #              ),
-    #              notificationItem(
-    #                text = ifelse(is.null(input$current_dataset_id_value) | input$current_dataset_id_value == 'None',
-    #                              'No subject ID selected',
-    #                              paste0('Subject ID selected: ', input$current_dataset_id_value)
-    #                ),
-    #                icon("person")
-    #              )
-    # )
   })
   
   #------------------------------ Data Tab 1 - DT1 ---------------------------------------------###############################
@@ -243,7 +231,6 @@ app_server <- function(input, output, session) {
     #------------------------------ DT1 Loading from data frame or package ------------------------------------- 
     prev_table$inputs_list <- switch(
       input$data_source,
-      
       "data_frame" = {
         # Case I - load in memory data frames
         # If there is no any data frame available in memory
@@ -251,8 +238,7 @@ app_server <- function(input, output, session) {
           showModal(
             modalDialog(
               title = "Warning - No Data Frame",
-              HTML(paste("There is no any data frame available",
-                         "to load in the R Global Environment", 
+              HTML(paste("There is no in-memory data frame available.",
                          sep = "<br/>")
               ), 
               size = "s"
@@ -264,33 +250,6 @@ app_server <- function(input, output, session) {
           outputOptions(output, "load_flag", suspendWhenHidden = FALSE)
         } else { # Otherwise return the list of available data frames in memory
           df_return_list <- prev_table$data_frame_list
-          # Set the condition for the load button
-          output$load_flag <- reactive('1')
-          outputOptions(output, "load_flag", suspendWhenHidden = FALSE)
-        }
-        df_return_list
-      },
-      
-      "time_series" = {
-        # Case II - load in memory time series
-        # If there is no any ts available in memory
-        if(length(prev_table$time_series_list) == 0){
-          showModal(
-            modalDialog(
-              title = "Warning - No Time Series Data",
-              HTML(paste("There is no time series data available",
-                         "to load in the R Global Environment", 
-                         sep = "<br/>")
-              ), 
-              size = "s"
-            ))
-          
-          df_return_list <- NA
-          # Set the condition for the load button
-          output$load_flag <- reactive('0')
-          outputOptions(output, "load_flag", suspendWhenHidden = FALSE)
-        } else { # Otherwise return the list of available time series in memory
-          df_return_list <- prev_table$time_series_list
           # Set the condition for the load button
           output$load_flag <- reactive('1')
           outputOptions(output, "load_flag", suspendWhenHidden = FALSE)
@@ -323,10 +282,7 @@ app_server <- function(input, output, session) {
     if(input$data_source == "data_frame" ) {
       selectInput("df_to_load", "Select Data Frame",
                   choices = prev_table$inputs_list )
-    } else if(input$data_source == "time_series" ) {
-      selectInput("df_to_load", "Select Series",
-                  choices = prev_table$inputs_list )
-    } else if(input$data_source == "inst_pack" ){
+    }  else if(input$data_source == "inst_pack" ){
       selectInput("df_to_load", "Select Dataset",
                   choices = prev_table$inputs_list )
     }
@@ -381,8 +337,6 @@ app_server <- function(input, output, session) {
                                  ifelse(prev_table$class == "matrix", "Matrix", 
                                         prev_table$class ))))
     
-    
-    
     if(!name %in% input_df$data_name){
       input_df$data_name <- c(input_df$data_name, name)
       if(is.null(input_df$loaded_table)){
@@ -403,6 +357,7 @@ app_server <- function(input, output, session) {
         temp <- NULL    
       }
       if(is.null(input_df$df_list)){
+        
         input_df$df_list <- list(df_tbl_view())
         input_df$df_class <- list(type)
         
@@ -448,6 +403,16 @@ app_server <- function(input, output, session) {
       outputOptions(output, "loaded_table_flag", suspendWhenHidden = FALSE)
     }
   })
+  
+  #------------------------------ DT1 Loaded dataset table ------------------------------------- 
+  output$list_loaded_df <- DT::renderDataTable(
+    data.frame(input_df$loaded_table), 
+    colnames = c("Dataset Name", "Num. of Variables", "Num. of Obs", "Data Type"),
+    selection = list(selected = 1, mode = 'single'), 
+    options = list(pageLength = 10,
+                   lengthMenu = c(10, 25, 50))
+  )
+  
   #------------------------------ DATA TAB 2 -------------------------------------   
   #------------------------------ DT2 summary boxes -------------------------------------
   output$data_name <- renderValueBox({
@@ -497,15 +462,6 @@ app_server <- function(input, output, session) {
     })
   })
   
-  #------------------------------ DT2 Loaded dataset table ------------------------------------- 
-  output$list_loaded_df <- DT::renderDataTable(
-    data.frame(input_df$loaded_table), 
-    colnames = c("Dataset Name", "Num. of Variables", "Num. of Obs", "Data Type"),
-    selection = list(selected = 1, mode = 'single'), 
-    options = list(pageLength = 10,
-                   lengthMenu = c(10, 25, 50))
-  )
-  # 
   observeEvent({
     input_df$names_list
   },{
@@ -602,13 +558,19 @@ app_server <- function(input, output, session) {
   # })
   
   output$simulation_parameter_origin <- renderUI({
-    selectInput(
-      "select_simulation_parameter_origin",
-      "Select parameter estimate source",
-      choices=c('Manual',
-                'Active dataset'),
-      selected='Manual',#ifelse(!is.null(input_df$data_name),'Active dataset','Manual'),
-      multiple = FALSE
+    if(!is.null(input_df$df)){
+      data_list <- c('Manual', 'Active dataset') 
+    } else {
+      data_list <- c('Manual') 
+    }
+    tagList(
+      selectInput(
+        "select_simulation_parameter_origin",
+        "Select parameter estimate source",
+        choices=data_list,
+        selected='Manual',#ifelse(!is.null(input_df$data_name),'Active dataset','Manual'),
+        multiple = FALSE
+      )
     )
   })
   
@@ -637,24 +599,6 @@ app_server <- function(input, output, session) {
   })
   
   
-  # Need to change the way that data tables are updated. We need a single loaded dataset variable, which is changeable from all tabs, and changes all the selectinputs.
-  # observeEvent(input$select_df_vis, {
-  #   if(!is.null(input$select_df_vis)){
-  #     input_df$df <- (
-  #       input_df$df_list[[which(names(input_df$df_list) == input$select_df_vis)]]
-  #     )
-  #     input_df$class <- input_df$df_class[[which(names(input_df$df_list) == input$select_df_vis)]]
-  #     
-  #     
-  #   } else{
-  #     input_df$df <- NULL
-  #     input_df$class <- NULL
-  #     output$data_tab2_table <- NULL
-  #   }
-  # })
-  # 
-  # input$select_simulation_parameter_origin
-  
   #------------------------------ Data tab 2 - Data Prep -------------------------------------    
   #------------------------------ Data tab 2 - Creating Variables Table ------------------------------------- 
   
@@ -664,16 +608,41 @@ app_server <- function(input, output, session) {
   observeEvent({
     input$data_option
     input$select_df
+    input$current_dataset_id_value
+    input$select_dataset_id_var
   }, {
     proxy_data_tab2_var %>% selectRows(NULL)
     proxy_data_tab2_var %>% selectColumns(NULL)
   },
   priority = 100)
   
-  c_input_df_var_summary <-reactive ({
-    input_df$df
+  id_var <- reactive({
+    input$select_dataset_id_var
   })
   
+  id_var_number <- reactive({
+    which( colnames(input_df$df)==input$select_dataset_id_var)
+  })
+  
+  loaded_dataset_index_variable <- reactive({
+    dlist <- names(filedata_updated())
+    ids <- NULL
+    if(!is.null(input$dataset_select_index_variable)){
+      for(i in 1:length(input$dataset_select_index_variable)){
+        ids[i] <- which(dlist == input$dataset_select_index_variable[i])
+      }
+    }
+    ids
+  })
+  
+  #currently loaded dataset id variable selected value
+  loaded_dataset_id_value <- reactive ({
+    if(!is.null(input$current_dataset_id_value) && input$current_dataset_id_value != 'None'){
+      input$current_dataset_id_value
+    } else {
+      NULL
+    }
+  })
   
   numVarsData<-reactive({
     if(!is.null(input$select_dataset_id_var) && !is.null(input_df$df)){
@@ -692,10 +661,10 @@ app_server <- function(input, output, session) {
   },{
     if(input$select_simulation_parameter_origin!='Manual'){
       updateNumericInput(session,
-                        'nVar',
-                        label="Number of variables:",
-                        value=numVarsData()
-                        )
+                         'nVar',
+                         label="Number of variables:",
+                         value=numVarsData()
+      )
     }
   })
   
@@ -703,123 +672,97 @@ app_server <- function(input, output, session) {
     input_df$df
     input$select_df
   }, {
-    if(!is.ts(input_df$df)){            
-      if((input$data_option == "var_attr" | input$data_option =="data_reshape") &
-         !is.null(input_df$df) &
-         !is.null(input_df$loaded_table)
-      ){
-        var.names <- names(input_df$df)
-        var.class <- NULL
-        for(i in 1:ncol(input_df$df)){
-          if(length(class(input_df$df[,i])) > 1){
-            if("factor" %in% class(input_df$df[,i])){
-              var.class <- c(var.class, "factor")
-            } else {
-              var.class <- c(var.class, "NA")
-            }
+    if((input$data_option == "var_attr" | input$data_option =="data_reshape") &
+       !is.null(input_df$df) &
+       !is.null(input_df$loaded_table)
+    ){
+      var.names <- names(input_df$df)
+      var.class <- NULL
+      for(i in 1:ncol(input_df$df)){
+        if(length(class(input_df$df[,i])) > 1){
+          if("factor" %in% class(input_df$df[,i])){
+            var.class <- c(var.class, "factor")
           } else {
-            var.class <- c(var.class, class(input_df$df[,i])[1])
+            var.class <- c(var.class, "NA")
           }
+        } else {
+          var.class <- c(var.class, class(input_df$df[,i])[1])
         }
-        input_df$var_summary <- data.frame(var.names, var.class, stringsAsFactors = FALSE)
-        names(input_df$var_summary) <- c("Name", "Class")
-        output$data_tab2_var <- DT::renderDataTable(
-          input_df$var_summary,
-          server = FALSE, rownames = FALSE,
-          selection = list(selected = 1, mode = 'single'), 
-          options = list(lengthMenu = c(5, 10, 15, 20), pageLength = 10, dom = 'p')
-        )
-        
-      } 
-    } else {
-      output$data_tab2_ts <- renderPlotly({
-        
-        
-        if(!input$ts_plot_log){
-          plot_ly( x = time(input_df$df), y = input_df$df, type  = "scatter", mode = input$ts_prep_mode)
-        } else if(input$ts_plot_log){
-          plot_ly( x = time(input_df$df), 
-                   y = log(input_df$df, base = exp(1)), type  = "scatter", mode = input$ts_prep_mode) %>%
-            layout(title = "Log Transformation")
-        }
-        
-      })
-    }
+      }
+      input_df$var_summary <- data.frame(var.names, var.class, stringsAsFactors = FALSE)
+      names(input_df$var_summary) <- c("Name", "Class")
+      output$data_tab2_var <- DT::renderDataTable(
+        input_df$var_summary,
+        server = FALSE, rownames = FALSE,
+        selection = list(selected = 1, mode = 'single'), 
+        options = list(lengthMenu = c(5, 10, 15, 20), pageLength = 10, dom = 'p')
+      )
+      
+    } 
+    
   })
   
   output$class_df_flag <- reactive({
     ifelse(is.ts(input_df$df), TRUE, FALSE)
   })
+  
   outputOptions(output, "class_df_flag", suspendWhenHidden = FALSE)    
   #------------------------------ Data tab 2 - Creating Variable Summary -------------------------------------  
   
   observeEvent({input$data_tab2_var_rows_selected},
                priority = -100,{
-                 if(!(is.ts(input_df$df)|is.ts(input_df$df))){
-                   r1 <- input$data_tab2_var_rows_selected
-                   if(is.numeric(input_df$df[, r1]) | is.integer(input_df$df[, r1])){
-                     var.mean <- mean(input_df$df[, r1], na.rm = TRUE)
-                     var.min  <- min(input_df$df[, r1], na.rm = TRUE)
-                     var.max  <- max(input_df$df[, r1], na.rm = TRUE)
-                     var.median <- median(input_df$df[, r1], na.rm = TRUE)
-                     var.sd <- sd(input_df$df[, r1])
-                     var.na <- sum(is.na(input_df$df[,r1]))
-                     summary.vec <- c(var.mean, var.min, var.max, var.median, var.sd,var.na)
-                     var_s <- data.frame(summary.vec)
-                     names(var_s) <- names(input_df$df)[r1]
-                     row.names(var_s) <- c("Mean", "Min", "Max", "Median", "Standard Deviation", "Missing values")
-                     p <- plot_ly(y = ~ input_df$df[, r1], type = "box", name = names(input_df$df)[r1],
-                                  boxpoints = "all", jitter = 0.3,
-                                  pointpos = -1.8)%>%
-                       layout(yaxis = list(title = "Range"))
-                   } else if(is.factor(input_df$df[, r1]) | is.character(input_df$df[, r1])){
-                     if(is.character(input_df$df[, r1])){
-                       std_input_df <- as.factor(input_df$df[, r1])
-                     } else {
-                       std_input_df <- input_df$df[, r1]
-                     }
-                     var.n.levels <- length(levels(std_input_df))
-                     var.levels <- NULL
-                     for(i in 1:var.n.levels){var.levels <- c(var.levels,levels(std_input_df)[i])}
-                     var_s <- c(var.n.levels)
-                     var_s <- data.frame(var_s)
-                     row.names(var_s) <- c("Number of Levels")
-                     names(var_s) <- names(input_df$df)[r1]
-                     factor.df <- group_by(input_df$df, get(names(input_df$df)[r1])) %>%
-                       summarise(count = dplyr::n())
-                     names(factor.df) <- c(names(std_input_df), "Count")
-                     p <- plot_ly(data = factor.df, name = "Levels",
-                                  x =  ~ get(names(factor.df)[1]),
-                                  y =  ~ get(names(factor.df)[2]), 
-                                  type = "bar") %>%
-                       layout(yaxis = list(title = "Count"),
-                              xaxis = list(title = "Levels"))
-                   } else if(is.Date(input_df$df[, r1])){
-                     var_s <- NULL
-                     var_s <- data.frame(c(as.character(min(input_df$df[, r1])), 
-                                           as.character(max(input_df$df[, r1]))), row.names = c("Start/Min Date", "End/Max Date"))
-                     names(var_s) <- names(input_df$df)[r1]
-                     p <- NULL
-                   } 
-                   
-                   
-                   # render the data summary into table
-                   output$data_tab2_var_summary <- renderTable(var_s, rownames = TRUE)
-                   output$data_tab2_var_summary_descr <- renderTable(summarytools::descr(input_df$df[r1]))
-                   output$data_tab2_summary_plot <- renderPlotly(p)
-                 } else {
-                   ts_table <- data.frame(c(paste(start(input_df$df), collapse = "-"),
-                                            paste(end(input_df$df), collapse = "-"),
-                                            min(input_df$df, na.rm = TRUE),
-                                            max(input_df$df, na.rm = TRUE),
-                                            round(sd(input_df$df, na.rm = TRUE),2)),
-                                          row.names = c("Start Date",
-                                                        "End Date", "Min Value",
-                                                        "Max Value","Standard Deviation"))
-                   names(ts_table) <- input$select_df
-                   output$ts_table <- renderTable(ts_table, rownames = TRUE)
-                   
-                 }
+                 r1 <- input$data_tab2_var_rows_selected
+                 if(is.numeric(input_df$df[, r1]) | is.integer(input_df$df[, r1])){
+                   var.mean <- mean(input_df$df[, r1], na.rm = TRUE)
+                   var.min  <- min(input_df$df[, r1], na.rm = TRUE)
+                   var.max  <- max(input_df$df[, r1], na.rm = TRUE)
+                   var.median <- median(input_df$df[, r1], na.rm = TRUE)
+                   var.sd <- sd(input_df$df[, r1])
+                   var.na <- sum(is.na(input_df$df[,r1]))
+                   summary.vec <- c(var.mean, var.min, var.max, var.median, var.sd,var.na)
+                   var_s <- data.frame(summary.vec)
+                   names(var_s) <- names(input_df$df)[r1]
+                   row.names(var_s) <- c("Mean", "Min", "Max", "Median", "Standard Deviation", "Missing values")
+                   p <- plot_ly(y = ~ input_df$df[, r1], type = "box", name = names(input_df$df)[r1],
+                                boxpoints = "all", jitter = 0.3,
+                                pointpos = -1.8)%>%
+                     layout(yaxis = list(title = "Range"))
+                 } else if(is.factor(input_df$df[, r1]) | is.character(input_df$df[, r1])){
+                   if(is.character(input_df$df[, r1])){
+                     std_input_df <- as.factor(input_df$df[, r1])
+                   } else {
+                     std_input_df <- input_df$df[, r1]
+                   }
+                   var.n.levels <- length(levels(std_input_df))
+                   var.levels <- NULL
+                   for(i in 1:var.n.levels){var.levels <- c(var.levels,levels(std_input_df)[i])}
+                   var_s <- c(var.n.levels)
+                   var_s <- data.frame(var_s)
+                   row.names(var_s) <- c("Number of Levels")
+                   names(var_s) <- names(input_df$df)[r1]
+                   factor.df <- group_by(input_df$df, get(names(input_df$df)[r1])) %>%
+                     summarise(count = dplyr::n())
+                   names(factor.df) <- c(names(std_input_df), "Count")
+                   p <- plot_ly(data = factor.df, name = "Levels",
+                                x =  ~ get(names(factor.df)[1]),
+                                y =  ~ get(names(factor.df)[2]), 
+                                type = "bar") %>%
+                     layout(yaxis = list(title = "Count"),
+                            xaxis = list(title = "Levels"))
+                 } else if(is.Date(input_df$df[, r1])){
+                   var_s <- NULL
+                   var_s <- data.frame(c(as.character(min(input_df$df[, r1])), 
+                                         as.character(max(input_df$df[, r1]))), row.names = c("Start/Min Date", "End/Max Date"))
+                   names(var_s) <- names(input_df$df)[r1]
+                   p <- NULL
+                 } 
+                 
+                 
+                 # render the data summary into table
+                 output$data_tab2_var_summary <- renderTable(var_s, rownames = TRUE)
+                 output$data_tab2_var_summary_descr <- renderTable(summarytools::descr(input_df$df[r1]))
+                 output$data_tab2_summary_plot <- renderPlotly(p)
+                 
                  
                })
   #------------------------------ Data tab 2 - Midifing Variables Attributes -------------------------------------  
@@ -873,8 +816,18 @@ app_server <- function(input, output, session) {
     if((input$tabs == "data2" | input$tabs == "vis") & is.null(input_df$df_list)){
       showModal(modalDialog(
         title = "Warning - No Loaded Dataset",
-        HTML(paste("There is no loaded dataset ",
-                   "Please select input and load it", 
+        HTML(paste("There is no loaded dataset. ",
+                   "Please load a dataset before initialization.", 
+                   sep = "<br/>")
+        ), size = "s"
+      ))
+    }
+    
+    if((input$tabs == "modelcomparison" | input$tabs == "tpestimation") & (is.null(input_df$df_list) && is.null(r$data))){
+      showModal(modalDialog(
+        title = "Warning - No Loaded Dataset",
+        HTML(paste("There is no loaded dataset.",
+                   "Please load or simulate a dataset before analysis.", 
                    sep = "<br/>")
         ), size = "s"
       ))
@@ -927,15 +880,14 @@ app_server <- function(input, output, session) {
       vis_df$class <- input_df$df_class[[which(names(input_df$df_list) == input$select_df_vis)]]
       
       vis_df$var_numeric <- vis_df$var_factor <- NULL
-      if(!is.ts(vis_df$df)){
-        for(i in 1:ncol(vis_df$df)){
-          if(is.factor(vis_df$df[,i])){
-            vis_df$var_factor <- c(vis_df$var_factor, names(vis_df$df)[i])
-          } else if(is.numeric(vis_df$df[,i]) | is.integer(vis_df$df[,i])){
-            vis_df$var_numeric <- c(vis_df$var_numeric,names(vis_df$df)[i])
-          }
+      for(i in 1:ncol(vis_df$df)){
+        if(is.factor(vis_df$df[,i])){
+          vis_df$var_factor <- c(vis_df$var_factor, names(vis_df$df)[i])
+        } else if(is.numeric(vis_df$df[,i]) | is.integer(vis_df$df[,i])){
+          vis_df$var_numeric <- c(vis_df$var_numeric,names(vis_df$df)[i])
         }
       }
+      
     } else{
       
       vis_df$df <- NULL
@@ -947,110 +899,6 @@ app_server <- function(input, output, session) {
       
     }
   })
-  
-  
-  observeEvent({input$var_modify
-    input$select_df_vis},{
-      if(!is.null(vis_df$var_numeric) & !is.ts(vis_df$df)){
-        ###################### NEED TO ADD CASE FOR ONLY ONE VARIABE !!!!!!
-        if(length(vis_df$var_numeric) == 1 ){
-          output$vis_plot_type <- renderUI({
-            selectInput("plot_type", "Select the Plot Type",
-                        choices = list("Boxplot" = "box",
-                                       "Histogram" = "hist",
-                                       "Density" = "density"))
-          })
-          output$vis_one_var <- renderUI({
-            selectInput("plot_var", "Select a Variable",
-                        choices = vis_df$var_numeric,
-                        selected = vis_df$var_numeric[1]
-            )
-          })
-          
-          output$vis_factor <- renderUI({
-            if(!is.null(vis_df$var_factor)){
-              selectInput(
-                "plot_factor", "Add Grouping Variable",
-                choices = c("None",  c(as.character(vis_df$var_factor),vis_df$var_numeric))
-              )
-            } else {
-              selectInput(
-                "plot_factor", "Add Categorical Variable",
-                choices = c("None",vis_df$var_numeric),
-                selected = "None"
-              )
-            }
-          })
-          
-        } else if(length(vis_df$var_numeric) > 1 ){
-          output$vis_plot_type <- renderUI({
-            selectInput("plot_type", "Select the Plot Type",
-                        choices = list("Scatter" = "scatter",
-                                       "Line" = "line",
-                                       "Boxplot" = "box",
-                                       "Histogram" = "hist",
-                                       "Density" = "density",
-                                       "Correlation" = "cor"))
-          })
-          
-          output$vis_one_var <- renderUI({
-            selectInput("plot_var", "Select a Variable",
-                        choices = vis_df$var_numeric,
-                        selected = vis_df$var_numeric[1]
-            )
-          })
-          
-          output$vis_x <- renderUI({
-            selectInput("plot_x", "Select the X Axis",
-                        choices = vis_df$var_numeric,
-                        selected = vis_df$var_numeric[1]
-            )
-          })
-          
-          output$vis_y <- renderUI({
-            selectInput(
-              "plot_y", "Select the Y Axis",
-              choices = vis_df$var_numeric,
-              selected = vis_df$var_numeric[2]
-            )
-          })
-          
-          output$vis_factor <- renderUI({
-            if(!is.null(vis_df$var_factor)){
-              selectInput(
-                "plot_factor", "Add Grouping Variable",
-                choices = c("None",  c(as.character(vis_df$var_factor),vis_df$var_numeric))
-              )
-            } else {
-              selectInput(
-                "plot_factor", "Add Categorical Variable",
-                choices = c("None",vis_df$var_numeric),
-                selected = "None"
-              )
-            }
-          })
-        }
-        
-      } else if(is.null(vis_df$var_numeric) & !is.ts(vis_df$df)){
-        output$vis_x  <- renderUI({
-          selectInput("plot_x", "Select Variables",
-                      choices = "No Available Numeric Variables"
-          )
-        })
-      } else if(is.ts(vis_df$df)){
-        output$vis_plot_type <- renderUI({
-          selectInput("plot_type", "Select the Plot Type",
-                      choices = list("Scatter" = "scatter",
-                                     "Line" = "line",
-                                     "Boxplot" = "box",
-                                     "Seasonal Plot" = "seasonal_plot",
-                                     "Lags Plot" = "lags_plot"))
-        })
-      }
-      
-    })
-  
-  
   
   observeEvent({input$var_modify
     input$plot_factor
@@ -1173,97 +1021,7 @@ app_server <- function(input, output, session) {
                               key = c, type = "heatmap", source = "heatplot")
                     }
         )
-      } else if(is.ts(vis_df$df)){
-        ts.df <- data.frame(dec_left = floor(time(vis_df$df)),
-                            dec_right = round((time(vis_df$df) - floor(time(vis_df$df))) * 
-                                                frequency(vis_df$df) + 1), 
-                            value = as.numeric(vis_df$df))
-        p <- switch(input$plot_type,
-                    "line" = {
-                      plot_ly( x = time(vis_df$df), y = vis_df$df, type  = "scatter", mode = "line")
-                    },
-                    "scatter" = {
-                      plot_ly( x = time(vis_df$df), y = vis_df$df, type  = "scatter")
-                    },
-                    "box" = {
-                      plot_ly(data = ts.df, y = ~ value ,
-                              color = ~ as.factor(dec_right), 
-                              type = "box", 
-                              boxpoints = "all", jitter = 0,
-                              pointpos = -1.8)
-                      
-                    },
-                    
-                    "seasonal_plot" = {
-                      if(frequency(vis_df$df) == 1){
-                        p <- plot_ly()
-                        showModal(modalDialog(
-                          title = "Warning - Seasonal Plot is Not Available",
-                          HTML(paste("Seasonal plot is not available",
-                                     "for time series object with yearly frequancy", 
-                                     sep = "<br/>")
-                          ), size = "s"
-                        ))
-                        p
-                      } else {
-                        ts.df_wide <- reshape2::dcast(ts.df, dec_right ~ dec_left )
-                        p <- plot_ly()
-                        
-                        for(f in 2:ncol(ts.df_wide)){
-                          p <- p %>% add_trace(x = ts.df_wide[,1], y = ts.df_wide[,f],
-                                               name = paste("time", names(ts.df_wide)[f], sep = " " ),
-                                               mode = "line")
-                        }
-                        p
-                      }
-                    },
-                    "lags_plot" = {
-                      lag <- NULL
-                      lag_plots <- NULL 
-                      max.lags <- 12
-                      for(g in 1:max.lags){
-                        if(g == 1){
-                          lag <- c(NA, ts.df$value[- nrow(ts.df)]) 
-                        } else {
-                          lag <- c(NA,lag[-nrow(ts.df)])
-                        }
-                        lag_plots[[g]] <- plot_ly(x = lag, y = ts.df$value, 
-                                                  name = paste("Lag", g, sep = " ")) %>%
-                          layout(xaxis = list(title = paste("Lag", g, sep = " "),
-                                              range = c( min(na.omit(as.numeric(lag))),  
-                                                         max(na.omit(as.numeric(lag))))),
-                                 yaxis = list(title = paste("Series", sep = ""),
-                                              range = c( min(na.omit(as.numeric(ts.df$value))),  
-                                                         max(na.omit(as.numeric(ts.df$value))))),
-                                 title = paste(input$select_df_vis,"Series vs Lags", sep = " "),
-                                 annotations = list(
-                                   # x = median(na.omit(as.numeric(lag))),
-                                   # y = median(na.omit(as.numeric(ts.df$value))),
-                                   showarrow = FALSE,
-                                   # arrowhead = 4,
-                                   # arrowsize = 0.5,
-                                   # ax = 20,
-                                   # ay = -20,
-                                   xref = paste("x", g, sep = ""),
-                                   yref = paste("y", g, sep = ""),
-                                   text = paste("Lag", g, sep = " "))
-                          )
-                      }
-                      
-                      subplot(lag_plots, 
-                              titleX = FALSE, titleY = TRUE,
-                              shareX = FALSE, shareY = FALSE, 
-                              margin = 0.05,
-                              nrows = ceiling(length(lag_plots) / 3))%>% 
-                        hide_legend()
-                    }
-        )
-        
       }
-      
-      
-      
-      
     }) 
     return(p)
   })
@@ -1285,12 +1043,11 @@ app_server <- function(input, output, session) {
     UseMethod('computeDataArgs',model)
   }
   
-  
   tmod <- reactive({
     tmod<-do.call(modelData,modelDataArgs(input$selection1))
     tmod
   })
-    
+  
   mod_params <- reactive({
     if(!is.null(tmod) && input$select_simulation_parameter_origin != 'Manual'){
       mod_params<-relevantModelParameters(tmod())
@@ -1301,17 +1058,13 @@ app_server <- function(input, output, session) {
     mod_params
   })
   
-
-  
-
-  
   filedata_updated <- reactive ({
     if(!is.null(input_df$df)){
-      if(input$select_dataset_id_var!='None' && input$current_dataset_id_value != 'None'){
+      if(input$select_dataset_id_var!='None' && !is.null(loaded_dataset_id_value())){
         input_df$df %>% 
-          dplyr::filter_at(id_var_number(), all_vars(. == as.integer(input$current_dataset_id_value))) %>% 
+          dplyr::filter_at(id_var_number(), all_vars(. == as.integer(loaded_dataset_id_value()))) %>% 
           dplyr::select(-starts_with(input$select_dataset_id_var)) 
-      } else if (input$select_dataset_id_var !='None' && input$current_dataset_id_value == 'None'){
+      } else if (input$select_dataset_id_var !='None' && is.null(loaded_dataset_id_value())){
         input_df$df %>% 
           dplyr::select(-starts_with(input$select_dataset_id_var))
       } else {
@@ -1320,7 +1073,7 @@ app_server <- function(input, output, session) {
     }
   })
   
-
+  
   # observeEvent({
   #   input$selection1},{
   #     if(!is.null(get0(prev_sim))){
@@ -1336,18 +1089,17 @@ app_server <- function(input, output, session) {
   # })
   
   prev_sim <<- reactiveVal(NULL)
+  
   observeEvent({input$selection1},{
     
     if(!is.null(prev_sim())){
-      print('exists')
-      print(prev_sim())
       removeUI(selector=paste0('div#',prev_sim(),'_sim_output'))
     }
     #model_specific_sim_output <- 
     insertUI(
-    selector='#sim_anchor',
-    where='afterEnd',
-    ui=uiOutput(paste0(input$selection1,'_sim_output'))
+      selector='#sim_anchor',
+      where='afterEnd',
+      ui=uiOutput(paste0(input$selection1,'_sim_output'))
     )
     prev_sim(input$selection1)
     # model_ui_list <- getModelUIList(input$selection1)
@@ -1360,30 +1112,30 @@ app_server <- function(input, output, session) {
     #    
     #   do.call(get(model_ui_list[[i]][[1]]),model_ui_list[[i]][[2]])
     # }
-  
+    
   })
   
   output$pcvar_sim_output <- renderUI({
     tagList(
-    transitionMatrixUI(ns(session)$ns,'phi'),
-    innovationMatrixUI(ns(session)$ns,'inno'),
-    loadingMatrixUI(ns(session)$ns,'loading_matrix')
+      transitionMatrixUI(ns(session)$ns,'phi'),
+      innovationMatrixUI(ns(session)$ns,'inno'),
+      loadingMatrixUI(ns(session)$ns,'loading_matrix')
     )
   })
- 
+  
   output$ar_sim_output <- renderUI({
     tagList(
-    transitionMatrixUI(ns(session)$ns,'phi'),
-    innovationMatrixUI(ns(session)$ns,'inno')
+      transitionMatrixUI(ns(session)$ns,'phi'),
+      innovationMatrixUI(ns(session)$ns,'inno')
     )
-    })
+  })
   
   output$var_sim_output <- renderUI({
     tagList(
-    transitionMatrixUI(ns(session)$ns,'phi'),
-    innovationMatrixUI(ns(session)$ns,'inno')
+      transitionMatrixUI(ns(session)$ns,'phi'),
+      innovationMatrixUI(ns(session)$ns,'inno')
     )
-    })
+  })
   # getModelUIList.pcvar <- function(model, label){
   #   return(list(
   #   list("loadingMatrixUI",list("ns(session)$ns","label"))
@@ -1395,31 +1147,6 @@ app_server <- function(input, output, session) {
   #   class(model)<-tolower(model)
   #   UseMethod('getModelUIList',model)
   # }
-    
-  
-  id_var <- reactive({
-    input$select_dataset_id_var
-  })
-  
-  id_var_number <- reactive({
-    which( colnames(input_df$df)==input$select_dataset_id_var)
-  })
-  
-  loaded_dataset_index_variable <- reactive({
-    dlist <- names(filedata_updated())
-    ids <- NULL
-    if(!is.null(input$dataset_select_index_variable)){
-      for(i in 1:length(input$dataset_select_index_variable)){
-        ids[i] <- which(dlist == input$dataset_select_index_variable[i])
-      }
-    }
-    ids
-  })
-  
-  #currently loaded dataset id variable selected value
-  loaded_dataset_id_value <- reactive ({
-    input$current_dataset_id_value
-  })
   
   #original df of currently loaded dataset
   filedata <- reactive({
@@ -1490,19 +1217,19 @@ app_server <- function(input, output, session) {
                    lengthMenu = c(10, 25, 50)
     )
   )
-
+  
   observeEvent(input$submit1, {
     r$data <<-
       do.call(computeData,list(input$nVar,
-                                  input$nTime,
-                                  0,
-                                  input$selection1,
-                                  val=TRUE,
-                                  burn=1000,
-                                  mod_params()#model-specific parameters
-                               )
+                               input$nTime,
+                               0,
+                               input$selection1,
+                               val=TRUE,
+                               burn=1000,
+                               mod_params()#model-specific parameters
       )
-      
+      )
+    
     if(!is.null(r$data)){
       showNotification("Parameters succesfully loaded. Simulated dataset initialized.",
                        type="message")
@@ -1567,7 +1294,7 @@ app_server <- function(input, output, session) {
     max_iter <- input$select_max_iter
     stepsize_scaler <- input$select_stepsize_scaler
     stepsize_init <-  current_stepsize_init_selected()
-  
+    
     
     
     tp <- searchTP(
@@ -1593,7 +1320,6 @@ app_server <- function(input, output, session) {
       output$tp <- renderUI({
         valueBox(tp[[1]],'recommended time points.', 
                  icon = icon('hourglass'),
-                 width=8,
                  color="green")
       })
       
@@ -1618,6 +1344,7 @@ app_server <- function(input, output, session) {
       
       modl <- list(tp_selected_model1(),
                    tp_selected_model2())
+      
       output$tp_last_1 <- renderUI({
         valueBox(tp[[3]],
                  paste0(toupper(error_metric),' of ', toupper(tp_selected_model1()),' at timepoint ',tp[[1]]),
@@ -1649,26 +1376,33 @@ app_server <- function(input, output, session) {
             plotOutput("tp_3d_plot")
             
           ),
-          selectInput(inputId="select_tp_distr_mse_fold_plot",
-                      label="Which time point",
-                      choices=c(unique(fold_df$tl)),
-                      multiple=TRUE,
-                      selectize=TRUE
-          ),
+          # boxPlus(
+          #   title = paste0('Plot of average ',toupper(error_metric),' difference across time points'),
+          #   closable=TRUE,
+          #   width=NULL,
+          #   collapsible=TRUE,
+          #   plotlyOutput("distr_mse_fold_plot")
+          #   
+          # ),
           boxPlus(
-            title = paste0('Plot of average ',toupper(error_metric),' difference across time points'),
+            title = paste0('Density plot of ',toupper(error_metric),' for both models.'),
             closable=TRUE,
             width=NULL,
             collapsible=TRUE,
-            plotlyOutput("distr_mse_fold_plot")
-            
-          ),
-          boxPlus(
-            title = paste0('Density plot of average and fold errors for time points: ', input$select_tp_distr_mse_fold_plot),
-            closable=TRUE,
-            width=NULL,
-            collapsible=TRUE,
-            plotlyOutput("distr_mse_fold_plot2")
+            enable_sidebar=TRUE,
+            solidheader=TRUE,
+            status="success",
+            plotlyOutput("distr_mse_fold_plot2"),
+            sidebar_width = 25,
+            sidebar_start_open = TRUE,
+            sidebar_content = tagList(
+              selectInput(inputId="select_distr_mse_fold_plot2_tp",
+                          label="Which time point",
+                          choices=c(unique(pldf$tl)),
+                          multiple=TRUE,
+                          selectize=TRUE
+              )
+            )
           )
         )
       })
@@ -1693,6 +1427,8 @@ app_server <- function(input, output, session) {
             #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
             #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
             scale_colour_manual(values = c("Blue", "Red")) +
+            scale_y_continuous(name=toupper(error_metric)) +
+            scale_x_discrete(name="Time point") +
             theme_classic() 
           
           
@@ -1704,96 +1440,141 @@ app_server <- function(input, output, session) {
           # ggplot(res2, aes(x = res2_y, y = value, fill = variable)) + geom_line(aes(color = variable))
         })
         
-        output$distr_mse_fold_plot <- renderPlotly({
-          if(!is.null(tp)){
-            dif <- fold_df %>%dplyr::filter(model==modl[1])-
-              fold_df %>%dplyr::filter(model==modl[2])
-            
-            dif_df <- fold_df %>% dplyr::filter(model==modl[1]) %>% 
-              dplyr::select(-starts_with('model'))
-            dif_df$mse <- dif$mse
-            
-            
-            sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
-            sel_dat$fold <- as.factor(sel_dat$fold)
-            colnames(sel_dat) <- c('model','tl','fold','mse')
-            p<- ggplot(sel_dat,aes(x=tl,y=mse)) + 
-              geom_point(aes(shape=as.factor(fold),colour=model),size=.5) + 
-              geom_point(data=dif_df,aes(shape=as.factor(fold)),colour='black',size=1) +
-              #geom_point(data=sel_dat,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
-              #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
-              #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
-              scale_colour_manual(values = c("Blue", "Red")) +
-              theme_classic() 
-            
-            ggplotly(p) %>% 
-              layout(autosize=TRUE)
-          }
-          
-          
-        })
+        # output$distr_mse_fold_plot <- renderPlotly({
+        #   if(!is.null(tp)){
+        #     dif <- fold_df %>%dplyr::filter(model==modl[1])-
+        #       fold_df %>%dplyr::filter(model==modl[2])
+        #     
+        #     dif_df <- fold_df %>% dplyr::filter(model==modl[1]) %>% 
+        #       dplyr::select(-starts_with('model'))
+        #     dif_df$mse <- dif$mse
+        #     
+        #     
+        #     sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
+        #     sel_dat$fold <- as.factor(sel_dat$fold)
+        #     colnames(sel_dat) <- c('model','tl','fold','mse')
+        #     p<- ggplot(sel_dat,aes(x=tl,y=mse)) + 
+        #       geom_point(aes(shape=as.factor(fold),colour=model),size=.5) + 
+        #       geom_point(data=dif_df,aes(shape=as.factor(fold)),colour='black',size=1) +
+        #       #geom_point(data=sel_dat,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
+        #       #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
+        #       #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
+        #       scale_colour_manual(values = c("Blue", "Red")) +
+        #       theme_classic() 
+        #     
+        #     ggplotly(p) %>% 
+        #       layout(autosize=TRUE)
+        #   }
+        #   
+        #   
+        # })
         
         output$tp_3d_plot <- renderPlot({
           tbl_tmp <- table(pldf$tl)
           pldf_binned <- pldf %>% dplyr::arrange(tl)
+          # pldf_binned <- cbind(pldf_binned[pldf_binned$model=='var',]$tl,
+          # pldf_binned[pldf_binned$model=='var',]$mse - pldf_binned[pldf_binned$model=='ar',]$mse)
+          
+          pldf_binned <- cbind(pldf_binned[pldf_binned$model==input$tp_model2,]$tl,
+                               pldf_binned[pldf_binned$model==input$tp_model2,]$mse - pldf_binned[pldf_binned$model==input$tp_model1,]$mse)
+          
+          pldf_binned <- data.frame(pldf_binned)
+          colnames(pldf_binned)<-c('tl','mse')
+          
           tmp <- NULL
           #bin some of the observations together
+          #if #obs lower than 10, store in a string the tp
+          #if #obs higher than 10, than we will do one of two things
+          #if tmp contains more than one observation (from previous #obs lower than 10)
+          #we add this string in a tl-tl format to the table
+          #else, if tmp == 1, we ignore it and go to next
+          #at the end of this we always reset tmp to NULL (in the #obs higher than 10 part)
+          flag <- FALSE
           for (i in 1:nrow(tbl_tmp)){
-            if(tbl_tmp[i] < 5){
+            if(tbl_tmp[i] < 10){
               tmp<-rbind(tmp,as.integer(names(tbl_tmp)[i]))
             } else if (!is.null(tmp)) {
               if(length(tmp)>1){
                 tmp_str <- paste0(min(tmp),'-',max(tmp))
-                
               } else {
                 tmp_str <- paste0(tmp)
               }
               pldf_binned[pldf_binned$tl %in% tmp,]$tl <- tmp_str
               tmp <- NULL
-            }
+              flag <- TRUE
+            }#else { 
+            #   tmp<-rbind(tmp,as.integer(names(tbl_tmp)[i]))
+            #   tmp_str <- paste0(tmp)
+            #   pldf_binned[pldf_binned$tl %in% tmp,]$tl <- tmp_str
+            #   tmp <- NULL
+            # }
+            
+          } 
+          
+          if(!flag && nrow(tbl_tmp)>1){
+            tmp_str <- paste0(min(tmp),'-',max(tmp))
+            pldf_binned[pldf_binned$tl %in% tmp,]$tl <- tmp_str
+          } else if (!flag && nrow(tbl_tmp)==1){
+            pldf_binned[pldf_binned$tl %in% tmp,]$tl <- tmp
           }
+          
           tmp <- table(pldf_binned$tl)
           tmp<-data.frame(cbind(names(tmp),sapply(data.frame(tmp)$Freq,as.character)))
           colnames(tmp)<-c('tl','freq')
           tmp$freq <- tmp$freq %>% as.character %>% as.numeric
-          tmp <- tmp %>% filter(freq>10)
-          pldf_binned <- pldf_binned %>% dplyr::filter(tl %in% tmp$tl)
           
-          p<- ggplot(pldf_binned,aes(x=mse,y=as.factor(tl),fill=model)) +
-            geom_density_ridges(aes(fill=model,point_color=model,point_fill=model),
-                                alpha=.5,
-                                jittered_points=TRUE,
-                                point_shape = "|",
-                                point_size=3,
-                                position = position_points_jitter(height=0),
-                                quantile_lines=TRUE,
-                                scale=1.2) +
-            ggridges::scale_discrete_manual(aesthetics = "point_color", values = c("darkcyan","deeppink")) +
-            ggridges::scale_discrete_manual(aesthetics = "point_fill", values = c("Cyan","Pink")) +
-            ggridges::scale_discrete_manual(aesthetics = "point_shape", values = c(22, 24))+
-            scale_colour_manual(values = c("Black", "Black")) +
-            scale_fill_cyclical(values= c("Cyan","Pink")) +
-            scale_y_discrete(name="Number of observations") +
-            guides(fill=guide_legend())+
-            theme_ridges(center=TRUE,grid=TRUE)
           
-          plot(p)
+          if(length(tmp %>% filter(freq>10))>1){
+            tmp <- tmp %>% filter(freq>10)
+            pldf_binned <- pldf_binned %>% dplyr::filter(tl %in% tmp$tl)
+            p<- ggplot(pldf_binned,aes(x=mse,y=as.factor(tl),fill=..x..)) +
+              geom_density_ridges_gradient(
+                alpha=.5,
+                jittered_points=TRUE,
+                point_shape = "|",
+                point_size=3,
+                position = position_points_jitter(height=0),
+                quantile_lines=FALSE,
+                scale=1.2) +
+              scale_y_discrete(name="Density") +
+              scale_x_continuous(name=toupper(error_metric))+
+              guides(fill=guide_legend())+
+              scale_fill_gradientn(name = "Model2 - Model1",colors=c('Red','Blue'))+
+              geom_text(aes(label=..count..), y=0, stat='count', colour="black", size=4) +
+              theme_ridges(center=TRUE,grid=TRUE)
+            
+            plot(p)
+          } else {
+            p<- ggplot(pldf_binned,aes(x=mse,y=as.factor(tl),fill=..x..)) +
+              geom_density_ridges_gradient(
+                alpha=.5,
+                jittered_points=TRUE,
+                point_shape = "|",
+                point_size=3,
+                position = position_points_jitter(height=0),
+                quantile_lines=FALSE,
+                scale=1.2) +
+              scale_y_discrete(name="Density") +
+              scale_x_continuous(name=toupper(error_metric))+
+              guides(fill=guide_legend())+
+              scale_fill_gradientn(name = "Model2 - Model1",colors=c('Red','Blue'))+
+              ggtitle("WARNING: Density distribution estimates are unreliable due to small sample sizes in each time point.")+
+              theme_ridges(center=TRUE,grid=TRUE)
+            
+            plot(p)
+            
+          }
         })
         
         output$distr_mse_fold_plot2 <- renderPlotly({
           if(!is.null(tp)){
+            sel_dat <- pldf %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot2()))
+            colnames(sel_dat) <- c('tl','model','mse')
             
-            sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
-            print(colnames(sel_dat))
-            sel_dat$fold <- as.factor(sel_dat$fold)
-            colnames(sel_dat) <- c('model','tl','fold','mse')
-            
-            sel_dat2 <- pldf %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
-            print(sel_dat2)
             p<- ggplot(sel_dat,aes(x=mse)) +
-              geom_density(aes(linetype=as.factor(fold),colour=model),size=.3) +
-              geom_density(data=sel_dat2,aes(colour=model),size=1) +
+              geom_density(data=sel_dat,aes(colour=model),size=1) +
               scale_colour_manual(values = c("Blue", "Red")) +
+              scale_x_continuous(name=toupper(error_metric)) +
               theme_classic() 
             
             ggplotly(p) %>% 
@@ -1804,10 +1585,11 @@ app_server <- function(input, output, session) {
     }
   })
   
-  current_selected_tp_distr_mse_fold_plot <- reactive({
-    input$select_tp_distr_mse_fold_plot
+  current_selected_tp_distr_mse_fold_plot2 <- reactive({
+    input$select_distr_mse_fold_plot2_tp
   })
   
+  #if initialized, use input value, otherwise use 20
   time_searchtp <- reactive({
     if(!is.null(input$nTime_tp)){
       input$nTime_tp
@@ -1816,40 +1598,115 @@ app_server <- function(input, output, session) {
     }
   })
   
+  ####Model comparison-------
+  
+  output$mc_config_ui<-renderUI({
+    if(!is.null(r$data) && !is.null(input_df$df)){
+      data_list <- c('Simulated dataset', 'Active dataset') 
+    } else if(!is.null(r$data) && is.null(input_df$df)){
+      data_list <- c('Simulated dataset') 
+    } else if(is.null(r$data) && !is.null(input_df$df)){
+      data_list <- c('Active dataset') 
+    } else {
+      data_list <- NULL
+    }
+    tagList(
+      boxPlus(
+        selectInput('mc_select_data',
+                    'Choose dataset',
+                    choices=data_list
+        ),
+        selectInput(inputId='mc_model1',
+                    label='Choose comparison model 1',
+                    choices=model_list,
+                    selected='ar'
+        ),
+        selectInput(inputId='mc_model2',
+                    label='Choose comparison model 2',
+                    choices=model_list,
+                    selected='var'
+        ),
+        actionButton("submitModelComparison", "Submit")
+      )
+    )
+  })
+  
+  analysis_ready_flag <- reactive({
+    if(is.null(r$data)&&is.null(input_df$df)){
+      return(FALSE)
+    } else {
+      return(TRUE)
+    }
+  })
+  
+  mc_data <- reactive({
+    mc_data <- NULL
+    if(input$mc_select_data == 'Simulated dataset'){
+      mc_data<-r$data
+    } else {
+      mc_data<-input_df$df
+    }
+    mc_data
+  })
   
   observeEvent({input$submitModelComparison},{
-    withProgress(message = 'Computing parameter accuracy', value = 0, {
-      acc$comparison <-
-        compareAccuracy(r$data,
-                        current_phi_input(),
-                        current_inno_input(),
-                        TRUE,
-                        selectedLagNum(),
-                        loaded_dataset_index_variable(),
-                        'ar',
-                        'var'
+    
+    if(!is.null(r$data)|!is.null(input_df$df)){
+      
+      mod1<-do.call(modelData,list(input$mc_model1,
+                                   mc_data(),
+                                   selectedLagNum(),
+                                   loaded_dataset_index_variable(),
+                                   modelDataParams(input$mc_model1)
+      )
+      )
+      mod2<-do.call(modelData,list(input$mc_model2,
+                                   mc_data(),
+                                   selectedLagNum(),
+                                   loaded_dataset_index_variable(),
+                                   modelDataParams(input$mc_model2)
+      )
+      )
+      
+      mod1_cv<-computeCV(mc_data(),
+                         model = input$mc_model1,
+                         K=3,
+                         loaded_dataset_index_variable(),
+                         lagNum = 1,
+                         error_metric = 'mse',
+                         modelDataParams(input$mc_model1)
+      )[[1]] %>% na.omit() %>% mean()
+      
+      mod2_cv<-computeCV(mc_data(),
+                         model = input$mc_model2,
+                         K=3,
+                         loaded_dataset_index_variable(),
+                         lagNum = 1,
+                         error_metric = 'mse',
+                         modelDataParams(input$mc_model2)
+      )[[1]] %>% na.omit() %>% mean()
+      
+      
+      
+      output$mc_outcome_ui <- renderUI({
+        tagList(
+          valueBox(
+            ifelse(
+              mod1_cv > mod2_cv,
+              input$mc_model2,
+              input$mc_model1
+            ),
+            paste0('Best model based on APE by blocked cross-validation (',input$mc_model1,': ',round(mod1_cv,2),'; ',input$mc_model2,': ',round(mod2_cv,2),')'),
+            icon=icon("th")
+          )
         )
-    })
-    cv$comparison <- compareCV(r$data, r$nVar, r$nTime, selectedLagNum(),loaded_dataset_index_variable())
-    print("--------")
-    output$best <- renderUI({
-      if (typeof(acc$comparison) == "character" |
-          is.null(acc$comparison)) {
-        return(" ")
-      } else if (anyNA(acc$comparison[[1]]) == TRUE &
-                 anyNA(acc$comparison[[2]]) == TRUE) {
-        return("Stationarity violated")
-      } else if (mean(acc$comparison[[1]]) > mean(acc$comparison[[2]])) {
-        best <- "VAR"
-      } else {
-        best <- "AR"
-      }
-      valueBox(best,"Best model based on true parameter accuracy.",icon=icon("eye"))
-    })
-    output$cvbest <- renderUI({
-      valueBox(cv$comparison,'Best model based on APE by blocked cross-validation',icon=icon("th"))
-    })
+      })
+    }
   })
+  
+  # valueBox(best,"Best model based on true parameter accuracy.",icon=icon("eye"))
+  
+  
   
   output$mseplot <- renderPlotly({
     if (is.null(r$nVar) | is.null(r$nModel2)) {
@@ -1904,8 +1761,7 @@ app_server <- function(input, output, session) {
     })
   })
   
-  
-  #network analysis
+  #####network analysis-----
   
   selected_network_vars <- reactive({
     input$select_network_vars
@@ -1945,11 +1801,11 @@ app_server <- function(input, output, session) {
     conditionalPanel(
       condition="input.select_graph_type == 'glasso'",
       numericInput("select_tuning","Select tuning",
-                 min=0,
-                 max=1,
-                 step=.01,
-                 value=.1
-    )
+                   min=0,
+                   max=1,
+                   step=.01,
+                   value=.1
+      )
     )
   })
   

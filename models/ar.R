@@ -73,6 +73,24 @@ searchTPArgs.arest <- function(model){
              ))
 }
 
+modelDataParams <- function(model){
+  class(model)<-tolower(model)
+  UseMethod('modelDataParams',model)
+}
+
+modelDataParams.ar<-function(model){
+}
+
+modelDataParams.var<-function(model){
+}
+
+modelDataParams.pcvar<-function(model){
+  if(!is.null(input$ncomp)){
+    return(input$ncomp)
+  } else {
+    return(NULL)
+  }
+}
 
 modelDataArgs.ar <- function(model){
   return(
@@ -161,7 +179,7 @@ computeData.ar <-function(nVar,
 computeData.arest <- computeData.ar
 
 ####Model fit function----
-modelData.ar <- function(model, dataset,lagNum,index_vars = NULL) {
+modelData.ar <- function(model, dataset,lagNum,index_vars = NULL,...) {
   ar.multivariate(
     dataset, #%>% dplyr::select(-index_vars),
     type = 'const',
@@ -300,67 +318,68 @@ simRenderE.ar<-function(input, output, session, input_df, r, estParams){
 
 transitionMatrixUI <- function(id, label="transition_matrix"){
   boxPlus(
-    enable_sidebar=FALSE,
+    enable_sidebar=TRUE,
     solid_header=TRUE,
     collapsible=TRUE,
     status="success",
     title='Transition Matrix',
     rHandsontableOutput("phi"),
-    fileInput(
-      'phifile',
-      'Upload Phi matrix',
-      multiple = FALSE,
-      accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-    ),
-    downloadLink("downloadPhiDataset", "Download Phi Matrix"),
+    # fileInput(
+    #   'phifile',
+    #   'Upload Phi matrix',
+    #   multiple = FALSE,
+    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    # ),
     sidebar_width = 25,
-    sidebar_start_open = TRUE,
+    sidebar_start_open = FALSE,
     sidebar_content = tagList(
-      numericInput(
-        "nDiagPhi",
-        "Diagonal coefficients:",
-        .1,
-        min = 0.1,
-        max = 1,
-        step = 0.1
-      )
+      downloadLink("downloadPhiDataset", "Download Phi Matrix")
+      
+      # numericInput(
+      #   "nDiagPhi",
+      #   "Diagonal coefficients:",
+      #   .1,
+      #   min = 0.1,
+      #   max = 1,
+      #   step = 0.1
+      # )
     )
   )
 }
 innovationMatrixUI <- function(id, label="innovation_matrix"){
   boxPlus(
-    enable_sidebar=FALSE,
+    enable_sidebar=TRUE,
     solidheader=TRUE,
     collapsible=TRUE,
     status="success",
     title="Innovation Matrix",
     rHandsontableOutput("inno"),
-    fileInput(
-      'innofile',
-      'Upload Innovation matrix',
-      multiple = FALSE,
-      accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-    ),
-    downloadLink("downloadInnoDataset", "Download Innovation Matrix"),
+    # fileInput(
+    #   'innofile',
+    #   'Upload Innovation matrix',
+    #   multiple = FALSE,
+    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    # ),
     sidebar_width = 25,
-    sidebar_start_open = TRUE,
+    sidebar_start_open = FALSE,
     sidebar_content = tagList(
-      numericInput(
-        "nInnoVar",
-        "Diagonal coefficients",
-        .01,
-        min = 0.01,
-        max = 10,
-        step = 0.1
-      ),
-      numericInput(
-        "nInnoCovar",
-        "Off-diagonal coefficients",
-        .01,
-        min = 0.01,
-        max = 10,
-        step = 0.1
-      )
+      downloadLink("downloadInnoDataset", "Download Innovation Matrix")
+      # numericInput(
+      #   "nInnoVar",
+      #   "Diagonal coefficients",
+      #   .01,
+      #   min = 0.01,
+      #   max = 10,
+      #   step = 0.1
+      # ),
+      # numericInput(
+      #   "nInnoCovar",
+      #   "Off-diagonal coefficients",
+      #   .01,
+      #   min = 0.01,
+      #   max = 10,
+      #   step = 0.1
+      # )
     )
   )
 }

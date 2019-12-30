@@ -98,7 +98,7 @@ computeData.var <-function(nVar,
 computeData.varest<-computeData.var
 
 ####Model fit function----
-modelData.varest <- function(model, dataset, lagNum, index_vars = NULL) {
+modelData.varest <- function(model, dataset, lagNum, index_vars = NULL,...) {
   require(vars)
   # variables<-na.omit(str_match(names(dataset),id))
   # day_index <- 'UNIT'
