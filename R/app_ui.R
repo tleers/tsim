@@ -9,14 +9,13 @@
 #' @import plotly
 #' @import rhandsontable
 #' @import DT
-#' @import shinyJS
 
 app_ui <- function(request) {
   model_list <- dir('models')
   model_list <- unlist(strsplit(model_list,'.R'))
-  
+  #library(V8)
   tagList(
-    shinyjs::useShinyjs(),
+    #shinyjs::useShinyjs(),
     golem_add_external_resources(),
     dashboardPagePlus(
       dashboardHeaderPlus(title = "TS",
@@ -80,7 +79,7 @@ app_ui <- function(request) {
                                   'Relative Standard Deviation (rSTD)'='rstd'),
                         selected='mse'),
             numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
-            numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=20),
+            numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=100),
             uiOutput('select_stepsize_init_element'),
             numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
             uiOutput('num_searchtp_sim')
@@ -348,41 +347,44 @@ app_ui <- function(request) {
                   )
           ),
           tabItem(tabName = "modelcomparison",
-                  fluidPage(
-                    box(
-                      width=2,
-                      title = "Best model",
-                      HTML(
-                        '<p> Compare models, based on APE and parameter accuracy. <p>'
-                      ),
-                      status = "success",
-                      actionButton("submitModelComparison", "Submit")
-                      
-                    ),
-                    uiOutput("best"),
-                    uiOutput("cvbest"),
-                    box(width = 12,
-                        title = "Plot of variables with x-axis timepoints and y-axis mse",
-                        plotlyOutput("mseplot")),
-                    box(
-                      title = "Applied model",
-                      status = "success",
-                      width = 2,
-                      selectInput(
-                        "selection2",
-                        "Choose a model to apply to data",
-                        model_list,
-                        selected = "ar"
-                      ),
-                      actionButton("submit2", "Submit")
-                    ),
-                    box(title = "Parameter accuracy",
-                        withMathJax(),
-                        uiOutput("accuracy")
-                    ),
-                    infoBoxOutput("mse"),
-                    infoBoxOutput("paramacc")
-                  )),
+                  uiOutput('mc_config_ui'),
+                  uiOutput('mc_outcome_ui')
+                  # fluidPage(
+                  #   box(
+                  #     width=2,
+                  #     title = "Best model",
+                  #     HTML(
+                  #       '<p> Compare models, based on APE and parameter accuracy. <p>'
+                  #     ),
+                  #     status = "success",
+                  #     actionButton("submitModelComparison", "Submit")
+                  #     
+                  #   ),
+                  #   uiOutput("best"),
+                  #   uiOutput("cvbest"),
+                  #   box(width = 12,
+                  #       title = "Plot of variables with x-axis timepoints and y-axis mse",
+                  #       plotlyOutput("mseplot")),
+                  #   box(
+                  #     title = "Applied model",
+                  #     status = "success",
+                  #     width = 2,
+                  #     selectInput(
+                  #       "selection2",
+                  #       "Choose a model to apply to data",
+                  #       model_list,
+                  #       selected = "ar"
+                  #     ),
+                  #     actionButton("submit2", "Submit")
+                  #   ),
+                  #   box(title = "Parameter accuracy",
+                  #       withMathJax(),
+                  #       uiOutput("accuracy")
+                  #   ),
+                  #   infoBoxOutput("mse"),
+                  #   infoBoxOutput("paramacc")
+                  # )),
+          ),
           tabItem(tabName = "networkanalysis",
                   fluidPage(
                     boxPlus(

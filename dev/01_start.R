@@ -10,8 +10,8 @@
 
 golem::fill_desc(
   pkg_name = "tsim", # The Name of the package containing the App 
-  pkg_title = "Timeseries Simulation-aided Analysis", # The Title of the package containing the App 
-  pkg_description = "This application does timeseries stuff. Use it.", # The Description of the package containing the App 
+  pkg_title = "Sample size planning application for time series research", # The Title of the package containing the App 
+  pkg_description = "Time series data are increasingly used as they allow researchers to capture the dynamics of psychological processes. Especially models that estimate the relationships between variables over time, such as the vector autoregression model (VAR), are frequently used. Unfortunately, due to the high complexity of estimating the relationships between all variables, VAR models are at risk of overfitting the data. Moreover, it is not clear how large the sample size must be to avoid overfitting the data. In this thesis, we propose a method that allows us to estimate the number of needed time points to fit a VAR model. To do so, we rely on a comparison with the simpler autoregression model (AR), which only estimates the relationships between each variable and itself at previous time points. By using blocked cross-validation (CV), a method taking into account the dependency of time series, we can estimate how well a model generalizes to out-of-sample data. We use blocked CV to fit both models to a series of simulated datasets, based on a user-defined data-generating model. By varying the number of time points in these datasets, we are able to estimate at which time point VAR generalizes better than AR. These methods are implemented into a Shiny application in R to allow for code-free interaction through a user interface, including the input of model parameters based on estimates from previously collected data.", # The Description of the package containing the App 
   author_first_name = "Tim", # Your First Name
   author_last_name = "Leers",  # Your Last Name
   author_email = "mail@timleers.com",      # Your Email

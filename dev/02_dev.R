@@ -14,7 +14,10 @@ golem::add_module( name = "my_other_module" ) # Name of the module
 
 source('package_install.R')
 list.of.packages = c( #-------------------------
+                      # "V8",
+                      # "shinyjs",
                       "dplyr",
+                      "viridis",
                       "stringr",
                       "roxygen2",
                       "devtools",
@@ -57,11 +60,11 @@ list.of.packages = c( #-------------------------
                       "here",
                       "devtools",
                       "tibble",
-                      "rintrojs",
+                      #"rintrojs",
                       "matrixcalc"
 )
 #----------
-install_package_list(list.of.packages)
+install_package_list(list.of.packages,install=FALSE)
 
 ## 2.3 Add tests
 

@@ -5,10 +5,12 @@
 #' @import shinydashboardPlus
 #' @import DT
 #' @import qgraph
+#' @import viridis
+
 app_server <- function(input, output, session) {
-  observeEvent(input$browser,{
-    browser()
-  })
+  # observeEvent(input$browser,{
+  #   browser()
+  # })
   models <- dir('models')
   models <- paste0('models/', models)
   for(i in 1:length(models)){
@@ -79,20 +81,20 @@ app_server <- function(input, output, session) {
                badgeColor = ifelse(is.null(input$select_dataset_id_var),"red","green")
                ),
       menuItem("Analysis", icon = icon("microscope"), tabName = "analysis",
-               #menuSubItem("Model Comparison", tabName = "modelcomparison"),
+               menuSubItem("Model Comparison", tabName = "modelcomparison"),
                menuSubItem("Timepoint Estimation", tabName="tpestimation")
       ),
       menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis")
     )
   })
   
-  observeEvent({input$tabs},{
-    if (input$tabs == "tpestimation") {
-      shinyjs::addClass(selector="body",class="control-sidebar-open")
-    } else {
-      shinyjs::removeClass(selector="body",class="control-sidebar-open")    
-      }
-  })
+  # observeEvent({input$tabs},{
+  #   if (input$tabs == "tpestimation") {
+  #     shinyjs::addClass(selector="body",class="control-sidebar-open")
+  #   } else {
+  #     shinyjs::removeClass(selector="body",class="control-sidebar-open")
+  #     }
+  # })
   
   #DOWNLOAD
   output$downloadInnoDataset <- downloadHandler(
@@ -135,9 +137,9 @@ app_server <- function(input, output, session) {
   
   current_inno_input <- reactive({
     if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
+      dinno <- hot_to_r(input$inno)
     } else if (input$select_simulation_parameter_origin == 'Manual'){
-      dinno <- hot_to_r(input$inno) %>% symmetrize.matrix()
+      dinno <- hot_to_r(input$inno)
     }
   })
   
@@ -161,7 +163,15 @@ app_server <- function(input, output, session) {
       colnames(phi_output) <- colnames(filedata_updated())
       rownames(phi_output) <- colnames(filedata_updated())
     } else if(input$select_simulation_parameter_origin == 'Manual'){
-      phi_output<-computePhi(input$nVar, .2, .1)
+      if(input$selection1 %in% c('var','pcvar')){
+        phi_output<-computePhi(input$nVar, .2, .1)
+        if(ncol(phi_output)>1){
+          phi_output[1,2]<-.5
+          phi_output[2,1]<-.45
+        }
+      } else {
+        phi_output<-computePhi(input$nVar, .2, 0)
+      }
       colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
       rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep=""))
     } else {
@@ -873,8 +883,8 @@ app_server <- function(input, output, session) {
     if((input$tabs == "data2" | input$tabs == "vis") & is.null(input_df$df_list)){
       showModal(modalDialog(
         title = "Warning - No Loaded Dataset",
-        HTML(paste("There is no loaded dataset ",
-                   "Please select input and load it", 
+        HTML(paste("There is no loaded dataset. ",
+                   "Please load a dataset before initialization.", 
                    sep = "<br/>")
         ), size = "s"
       ))
@@ -1173,97 +1183,7 @@ app_server <- function(input, output, session) {
                               key = c, type = "heatmap", source = "heatplot")
                     }
         )
-      } else if(is.ts(vis_df$df)){
-        ts.df <- data.frame(dec_left = floor(time(vis_df$df)),
-                            dec_right = round((time(vis_df$df) - floor(time(vis_df$df))) * 
-                                                frequency(vis_df$df) + 1), 
-                            value = as.numeric(vis_df$df))
-        p <- switch(input$plot_type,
-                    "line" = {
-                      plot_ly( x = time(vis_df$df), y = vis_df$df, type  = "scatter", mode = "line")
-                    },
-                    "scatter" = {
-                      plot_ly( x = time(vis_df$df), y = vis_df$df, type  = "scatter")
-                    },
-                    "box" = {
-                      plot_ly(data = ts.df, y = ~ value ,
-                              color = ~ as.factor(dec_right), 
-                              type = "box", 
-                              boxpoints = "all", jitter = 0,
-                              pointpos = -1.8)
-                      
-                    },
-                    
-                    "seasonal_plot" = {
-                      if(frequency(vis_df$df) == 1){
-                        p <- plot_ly()
-                        showModal(modalDialog(
-                          title = "Warning - Seasonal Plot is Not Available",
-                          HTML(paste("Seasonal plot is not available",
-                                     "for time series object with yearly frequancy", 
-                                     sep = "<br/>")
-                          ), size = "s"
-                        ))
-                        p
-                      } else {
-                        ts.df_wide <- reshape2::dcast(ts.df, dec_right ~ dec_left )
-                        p <- plot_ly()
-                        
-                        for(f in 2:ncol(ts.df_wide)){
-                          p <- p %>% add_trace(x = ts.df_wide[,1], y = ts.df_wide[,f],
-                                               name = paste("time", names(ts.df_wide)[f], sep = " " ),
-                                               mode = "line")
-                        }
-                        p
-                      }
-                    },
-                    "lags_plot" = {
-                      lag <- NULL
-                      lag_plots <- NULL 
-                      max.lags <- 12
-                      for(g in 1:max.lags){
-                        if(g == 1){
-                          lag <- c(NA, ts.df$value[- nrow(ts.df)]) 
-                        } else {
-                          lag <- c(NA,lag[-nrow(ts.df)])
-                        }
-                        lag_plots[[g]] <- plot_ly(x = lag, y = ts.df$value, 
-                                                  name = paste("Lag", g, sep = " ")) %>%
-                          layout(xaxis = list(title = paste("Lag", g, sep = " "),
-                                              range = c( min(na.omit(as.numeric(lag))),  
-                                                         max(na.omit(as.numeric(lag))))),
-                                 yaxis = list(title = paste("Series", sep = ""),
-                                              range = c( min(na.omit(as.numeric(ts.df$value))),  
-                                                         max(na.omit(as.numeric(ts.df$value))))),
-                                 title = paste(input$select_df_vis,"Series vs Lags", sep = " "),
-                                 annotations = list(
-                                   # x = median(na.omit(as.numeric(lag))),
-                                   # y = median(na.omit(as.numeric(ts.df$value))),
-                                   showarrow = FALSE,
-                                   # arrowhead = 4,
-                                   # arrowsize = 0.5,
-                                   # ax = 20,
-                                   # ay = -20,
-                                   xref = paste("x", g, sep = ""),
-                                   yref = paste("y", g, sep = ""),
-                                   text = paste("Lag", g, sep = " "))
-                          )
-                      }
-                      
-                      subplot(lag_plots, 
-                              titleX = FALSE, titleY = TRUE,
-                              shareX = FALSE, shareY = FALSE, 
-                              margin = 0.05,
-                              nrows = ceiling(length(lag_plots) / 3))%>% 
-                        hide_legend()
-                    }
-        )
-        
       }
-      
-      
-      
-      
     }) 
     return(p)
   })
@@ -1285,7 +1205,6 @@ app_server <- function(input, output, session) {
     UseMethod('computeDataArgs',model)
   }
   
-  
   tmod <- reactive({
     tmod<-do.call(modelData,modelDataArgs(input$selection1))
     tmod
@@ -1300,10 +1219,6 @@ app_server <- function(input, output, session) {
     print(mod_params)
     mod_params
   })
-  
-
-  
-
   
   filedata_updated <- reactive ({
     if(!is.null(input_df$df)){
@@ -1336,11 +1251,10 @@ app_server <- function(input, output, session) {
   # })
   
   prev_sim <<- reactiveVal(NULL)
+  
   observeEvent({input$selection1},{
     
     if(!is.null(prev_sim())){
-      print('exists')
-      print(prev_sim())
       removeUI(selector=paste0('div#',prev_sim(),'_sim_output'))
     }
     #model_specific_sim_output <- 
@@ -1593,7 +1507,6 @@ app_server <- function(input, output, session) {
       output$tp <- renderUI({
         valueBox(tp[[1]],'recommended time points.', 
                  icon = icon('hourglass'),
-                 width=8,
                  color="green")
       })
       
@@ -1618,6 +1531,7 @@ app_server <- function(input, output, session) {
       
       modl <- list(tp_selected_model1(),
                    tp_selected_model2())
+      
       output$tp_last_1 <- renderUI({
         valueBox(tp[[3]],
                  paste0(toupper(error_metric),' of ', toupper(tp_selected_model1()),' at timepoint ',tp[[1]]),
@@ -1649,26 +1563,33 @@ app_server <- function(input, output, session) {
             plotOutput("tp_3d_plot")
             
           ),
-          selectInput(inputId="select_tp_distr_mse_fold_plot",
-                      label="Which time point",
-                      choices=c(unique(fold_df$tl)),
-                      multiple=TRUE,
-                      selectize=TRUE
-          ),
+          # boxPlus(
+          #   title = paste0('Plot of average ',toupper(error_metric),' difference across time points'),
+          #   closable=TRUE,
+          #   width=NULL,
+          #   collapsible=TRUE,
+          #   plotlyOutput("distr_mse_fold_plot")
+          #   
+          # ),
           boxPlus(
-            title = paste0('Plot of average ',toupper(error_metric),' difference across time points'),
+            title = paste0('Density plot of ',toupper(error_metric),' for both models.'),
             closable=TRUE,
             width=NULL,
             collapsible=TRUE,
-            plotlyOutput("distr_mse_fold_plot")
-            
-          ),
-          boxPlus(
-            title = paste0('Density plot of average and fold errors for time points: ', input$select_tp_distr_mse_fold_plot),
-            closable=TRUE,
-            width=NULL,
-            collapsible=TRUE,
-            plotlyOutput("distr_mse_fold_plot2")
+            enable_sidebar=TRUE,
+            solidheader=TRUE,
+            status="success",
+            plotlyOutput("distr_mse_fold_plot2"),
+            sidebar_width = 25,
+            sidebar_start_open = TRUE,
+            sidebar_content = tagList(
+              selectInput(inputId="select_distr_mse_fold_plot2_tp",
+                          label="Which time point",
+                          choices=c(unique(pldf$tl)),
+                          multiple=TRUE,
+                          selectize=TRUE
+              )
+            )
           )
         )
       })
@@ -1704,96 +1625,130 @@ app_server <- function(input, output, session) {
           # ggplot(res2, aes(x = res2_y, y = value, fill = variable)) + geom_line(aes(color = variable))
         })
         
-        output$distr_mse_fold_plot <- renderPlotly({
-          if(!is.null(tp)){
-            dif <- fold_df %>%dplyr::filter(model==modl[1])-
-              fold_df %>%dplyr::filter(model==modl[2])
-            
-            dif_df <- fold_df %>% dplyr::filter(model==modl[1]) %>% 
-              dplyr::select(-starts_with('model'))
-            dif_df$mse <- dif$mse
-            
-            
-            sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
-            sel_dat$fold <- as.factor(sel_dat$fold)
-            colnames(sel_dat) <- c('model','tl','fold','mse')
-            p<- ggplot(sel_dat,aes(x=tl,y=mse)) + 
-              geom_point(aes(shape=as.factor(fold),colour=model),size=.5) + 
-              geom_point(data=dif_df,aes(shape=as.factor(fold)),colour='black',size=1) +
-              #geom_point(data=sel_dat,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
-              #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
-              #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
-              scale_colour_manual(values = c("Blue", "Red")) +
-              theme_classic() 
-            
-            ggplotly(p) %>% 
-              layout(autosize=TRUE)
-          }
-          
-          
-        })
+        # output$distr_mse_fold_plot <- renderPlotly({
+        #   if(!is.null(tp)){
+        #     dif <- fold_df %>%dplyr::filter(model==modl[1])-
+        #       fold_df %>%dplyr::filter(model==modl[2])
+        #     
+        #     dif_df <- fold_df %>% dplyr::filter(model==modl[1]) %>% 
+        #       dplyr::select(-starts_with('model'))
+        #     dif_df$mse <- dif$mse
+        #     
+        #     
+        #     sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
+        #     sel_dat$fold <- as.factor(sel_dat$fold)
+        #     colnames(sel_dat) <- c('model','tl','fold','mse')
+        #     p<- ggplot(sel_dat,aes(x=tl,y=mse)) + 
+        #       geom_point(aes(shape=as.factor(fold),colour=model),size=.5) + 
+        #       geom_point(data=dif_df,aes(shape=as.factor(fold)),colour='black',size=1) +
+        #       #geom_point(data=sel_dat,aes(x=tl,y=mean(mse),colour=model),size=1.4) + 
+        #       #geom_linerange(data=pldf,position='dodge',aes(ymin=0,ymax=max_mse/10*count)) +
+        #       #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
+        #       scale_colour_manual(values = c("Blue", "Red")) +
+        #       theme_classic() 
+        #     
+        #     ggplotly(p) %>% 
+        #       layout(autosize=TRUE)
+        #   }
+        #   
+        #   
+        # })
         
         output$tp_3d_plot <- renderPlot({
           tbl_tmp <- table(pldf$tl)
           pldf_binned <- pldf %>% dplyr::arrange(tl)
+          # pldf_binned <- cbind(pldf_binned[pldf_binned$model=='var',]$tl,
+          # pldf_binned[pldf_binned$model=='var',]$mse - pldf_binned[pldf_binned$model=='ar',]$mse)
+          
+          pldf_binned <- cbind(pldf_binned[pldf_binned$model==input$tp_model2,]$tl,
+          pldf_binned[pldf_binned$model==input$tp_model2,]$mse - pldf_binned[pldf_binned$model==input$tp_model1,]$mse)
+          
+          pldf_binned <- data.frame(pldf_binned)
+          colnames(pldf_binned)<-c('tl','mse')
+          
           tmp <- NULL
           #bin some of the observations together
+          #if #obs lower than 10, store in a string the tp
+          #if #obs higher than 10, than we will do one of two things
+          #if tmp contains more than one observation (from previous #obs lower than 10)
+          #we add this string in a tl-tl format to the table
+          #else, if tmp == 1, we ignore it and go to next
+          #at the end of this we always reset tmp to NULL (in the #obs higher than 10 part)
           for (i in 1:nrow(tbl_tmp)){
-            if(tbl_tmp[i] < 5){
+            if(tbl_tmp[i] < 10){
               tmp<-rbind(tmp,as.integer(names(tbl_tmp)[i]))
             } else if (!is.null(tmp)) {
               if(length(tmp)>1){
                 tmp_str <- paste0(min(tmp),'-',max(tmp))
-                
               } else {
                 tmp_str <- paste0(tmp)
               }
               pldf_binned[pldf_binned$tl %in% tmp,]$tl <- tmp_str
               tmp <- NULL
-            }
+             }#else {
+            #   tmp<-rbind(tmp,as.integer(names(tbl_tmp)[i]))
+            #   tmp_str <- paste0(tmp)
+            #   pldf_binned[pldf_binned$tl %in% tmp,]$tl <- tmp_str
+            #   tmp <- NULL
+            # }
           }
+          
           tmp <- table(pldf_binned$tl)
           tmp<-data.frame(cbind(names(tmp),sapply(data.frame(tmp)$Freq,as.character)))
           colnames(tmp)<-c('tl','freq')
           tmp$freq <- tmp$freq %>% as.character %>% as.numeric
+          
+          
+          if(length(tmp %>% filter(freq>10))>1){
           tmp <- tmp %>% filter(freq>10)
           pldf_binned <- pldf_binned %>% dplyr::filter(tl %in% tmp$tl)
-          
-          p<- ggplot(pldf_binned,aes(x=mse,y=as.factor(tl),fill=model)) +
-            geom_density_ridges(aes(fill=model,point_color=model,point_fill=model),
+          p<- ggplot(pldf_binned,aes(x=mse,y=as.factor(tl),fill=..x..)) +
+            geom_density_ridges_gradient(
                                 alpha=.5,
                                 jittered_points=TRUE,
                                 point_shape = "|",
                                 point_size=3,
                                 position = position_points_jitter(height=0),
-                                quantile_lines=TRUE,
+                                quantile_lines=FALSE,
                                 scale=1.2) +
-            ggridges::scale_discrete_manual(aesthetics = "point_color", values = c("darkcyan","deeppink")) +
-            ggridges::scale_discrete_manual(aesthetics = "point_fill", values = c("Cyan","Pink")) +
-            ggridges::scale_discrete_manual(aesthetics = "point_shape", values = c(22, 24))+
-            scale_colour_manual(values = c("Black", "Black")) +
-            scale_fill_cyclical(values= c("Cyan","Pink")) +
-            scale_y_discrete(name="Number of observations") +
+            scale_y_discrete(name="Density") +
+            scale_x_continuous(name=toupper(error_metric))+
             guides(fill=guide_legend())+
+            scale_fill_gradientn(name = "Model2 - Model1",colors=c('Red','Blue'))+
             theme_ridges(center=TRUE,grid=TRUE)
-          
+
           plot(p)
+          } else {
+            p<- ggplot(pldf_binned,aes(x=mse,y=as.factor(tl),fill=..x..)) +
+              geom_density_ridges_gradient(
+                alpha=.5,
+                jittered_points=TRUE,
+                point_shape = "|",
+                point_size=3,
+                position = position_points_jitter(height=0),
+                quantile_lines=FALSE,
+                scale=1.2) +
+              scale_y_discrete(name="Density") +
+              scale_x_continuous(name=toupper(error_metric))+
+              guides(fill=guide_legend())+
+              scale_fill_gradientn(name = "Model2 - Model1",colors=c('Red','Blue'))+
+              ggtitle("WARNING: Density distribution estimates are unreliable due to small sample sizes in each time point.")+
+              theme_ridges(center=TRUE,grid=TRUE)
+            
+            plot(p)
+            
+          }
         })
         
         output$distr_mse_fold_plot2 <- renderPlotly({
           if(!is.null(tp)){
+            sel_dat <- pldf %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot2()))
+            colnames(sel_dat) <- c('tl','model','mse')
             
-            sel_dat <- fold_df %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
-            print(colnames(sel_dat))
-            sel_dat$fold <- as.factor(sel_dat$fold)
-            colnames(sel_dat) <- c('model','tl','fold','mse')
-            
-            sel_dat2 <- pldf %>% dplyr::filter(tl %in% c(current_selected_tp_distr_mse_fold_plot()))
-            print(sel_dat2)
             p<- ggplot(sel_dat,aes(x=mse)) +
-              geom_density(aes(linetype=as.factor(fold),colour=model),size=.3) +
-              geom_density(data=sel_dat2,aes(colour=model),size=1) +
+              geom_density(data=sel_dat,aes(colour=model),size=1) +
               scale_colour_manual(values = c("Blue", "Red")) +
+              scale_x_continuous(name=toupper(error_metric)) +
               theme_classic() 
             
             ggplotly(p) %>% 
@@ -1804,10 +1759,11 @@ app_server <- function(input, output, session) {
     }
   })
   
-  current_selected_tp_distr_mse_fold_plot <- reactive({
-    input$select_tp_distr_mse_fold_plot
+  current_selected_tp_distr_mse_fold_plot2 <- reactive({
+    input$select_distr_mse_fold_plot2_tp
   })
   
+  #if initialized, use input value, otherwise use 20
   time_searchtp <- reactive({
     if(!is.null(input$nTime_tp)){
       input$nTime_tp
@@ -1816,40 +1772,89 @@ app_server <- function(input, output, session) {
     }
   })
   
+####Model comparison-------
+  
+  output$mc_config_ui<-renderUI({
+    if(!is.null(r$data) && !is.null(input_df$df)){
+      data_list <- c('Simulated dataset', 'Active dataset') 
+    } else if(!is.null(r$data) && is.null(input_df$df)){
+      data_list <- c('Simulated dataset') 
+    } else if(is.null(r$data) && !is.null(input_df$df)){
+      data_list <- c('Active dataset') 
+    } else {
+      data_list <- NULL
+    }
+    tagList(
+      boxPlus(
+      selectInput('mc_select_data',
+                'Choose dataset',
+                choices=data_list
+                ),
+      selectInput(inputId='mc_model1',
+                  label='Choose comparison model 1',
+                  choices=model_list,
+                  selected='ar'
+      ),
+      selectInput(inputId='mc_model2',
+                  label='Choose comparison model 2',
+                  choices=model_list,
+                  selected='var'
+      ),
+      actionButton("submitModelComparison", "Submit")
+      )
+    )
+  })
   
   observeEvent({input$submitModelComparison},{
-    withProgress(message = 'Computing parameter accuracy', value = 0, {
-      acc$comparison <-
-        compareAccuracy(r$data,
-                        current_phi_input(),
-                        current_inno_input(),
-                        TRUE,
-                        selectedLagNum(),
-                        loaded_dataset_index_variable(),
-                        'ar',
-                        'var'
+    mc_data <- ifelse(input$mc_select_data == 'Simulated dataset',r$data,active_df$df)
+    mod1<-do.call(modelData,list(input$mc_model1,
+                                 mc_data,selectedLagNum(),
+                                 loaded_dataset_index_variable(),
+                                 modelDataParams(input$mc_model1)
+                                 )
+                  )
+    mod2<-do.call(modelData,list(input$mc_model2,
+                                 mc_data,selectedLagNum(),
+                                 loaded_dataset_index_variable(),
+                                 modelDataParams(input$mc_model2)
+    )
+    )
+    
+    mod1_cv<-computeCV(model = input$mc_model1,
+              K=3,
+              index_vars,
+              lagNum = 1,
+              error_metric = 'mse',
+              modelDataParams(input$mc_model1)
+    )
+    
+    mod2_cv<-computeCV(model = input$mc_model2,
+                       K=3,
+                       index_vars,
+                       lagNum = 1,
+                       error_metric = 'mse',
+                       modelDataParams(input$mc_model2)
+    )
+    
+    output$mc_outcome_ui <- renderUI({
+
+      tagList(
+        valueBox(
+        ifelse(
+          mod1_cv[[1]] > mod2_cv[[2]],
+          input$mc_model2,
+          input$mc_model1
+          ),
+          'Best model based on APE by blocked cross-validation',
+        icon=icon("th")
         )
-    })
-    cv$comparison <- compareCV(r$data, r$nVar, r$nTime, selectedLagNum(),loaded_dataset_index_variable())
-    print("--------")
-    output$best <- renderUI({
-      if (typeof(acc$comparison) == "character" |
-          is.null(acc$comparison)) {
-        return(" ")
-      } else if (anyNA(acc$comparison[[1]]) == TRUE &
-                 anyNA(acc$comparison[[2]]) == TRUE) {
-        return("Stationarity violated")
-      } else if (mean(acc$comparison[[1]]) > mean(acc$comparison[[2]])) {
-        best <- "VAR"
-      } else {
-        best <- "AR"
-      }
-      valueBox(best,"Best model based on true parameter accuracy.",icon=icon("eye"))
-    })
-    output$cvbest <- renderUI({
-      valueBox(cv$comparison,'Best model based on APE by blocked cross-validation',icon=icon("th"))
+      )
     })
   })
+  
+      # valueBox(best,"Best model based on true parameter accuracy.",icon=icon("eye"))
+  
+
   
   output$mseplot <- renderPlotly({
     if (is.null(r$nVar) | is.null(r$nModel2)) {
@@ -1904,8 +1909,7 @@ app_server <- function(input, output, session) {
     })
   })
   
-  
-  #network analysis
+#####network analysis-----
   
   selected_network_vars <- reactive({
     input$select_network_vars

@@ -1,5 +1,8 @@
 list.of.packages = c( #-------------------------
+                      # "V8",
+                      # "shinyjs",
                       "dplyr",
+                      "viridis",
                       "stringr",
                       "roxygen2",
                       "devtools",
@@ -42,18 +45,17 @@ list.of.packages = c( #-------------------------
                       "here",
                       "devtools",
                       "tibble",
-                      "rintrojs",
+                      #"rintrojs",
                       "matrixcalc"
 )
-
-
 
 print('')
 
 
 #----------
-install_package_list <- function(list.of.packages){
+install_package_list <- function(list.of.packages,install=TRUE){
   
+  if(install==TRUE){
   new.packages <-
     list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
   if (length(new.packages) > 0) {
@@ -61,6 +63,7 @@ install_package_list <- function(list.of.packages){
   }
   lapply(list.of.packages, install.packages ,character.only = T)
   
+  }
   new.packages <-
     list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
   if (length(new.packages) > 0) {

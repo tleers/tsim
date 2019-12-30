@@ -287,51 +287,49 @@ compareCV <- function(data, nVar, nTime, lagNum, index_vars) {
   }
 }
 
-computeCV <- function(data, model, nTime, nVar, lagNum) {
-  dataSt <- standardize.popsd(data)
-  K <- 10
-  CV <- as.numeric(factor(sort(rank(1:nTime %% 10))))
+computeCV <- function(
+                      data,
+                      model = 'ar',
+                      K = 5,
+                      index_vars,
+                      lagNum = 1,
+                      error_metric = 'mse',
+                      model_params
+                      ) {
+  
+  CV <- as.numeric(factor(sort(rank(1:(
+    nrow(data) - 1
+  ) %% K))))
   ### CV loop
   indLastElFold <- tapply(seq_along(CV), CV, max)
   indFirstElFold <- c(1, indLastElFold[-K])
-  mse <<- matrix(0, K, 1)
-  #withProgress(message = 'Computing block-based MSE', value = 0, {
+  error1 <- matrix(0, K, 1)#error metric model1
+  se1 <- matrix(0, K, 1)#SE model1
+
+  #withProgress(message = 'Computing blocked CV', value = 0, {
   for (k in 1:K) {
     # Prepare test data
-    DataTest <- dataSt[indFirstElFold[k]:indLastElFold[k],]
+    DataTest <- data[indFirstElFold[k]:indLastElFold[k],]
     XTest <-
       DataTest[-nrow(DataTest),]
     YTest <- DataTest[-1,]
     # Prepare training data
     DataTrain <-
-      dataSt[-(indFirstElFold[k]:(indLastElFold[k] - 1)),]
-    if (model == 'ar') {
-      res <- ar.multivariate(
-        DataTrain,
-        type = "const",
-        method = AR_METHOD,
-        aic = FALSE,
-        order.max = lagNum
-      )$resid
-      
-      if (is.null(res)) {
-        showNotification('Singular matrix - computation not possible. Change parameters.',
-                         type = "error")
-        return(NULL)
-      }
-    } else if (model == 'var') {
-      res <- residuals(VAR(DataTrain, type = "const", p = 1))
-    }
-    res <- na.omit(matrix(as.vector(res), ncol = ncol(data)))
-    res2 <- reshape2::melt(res, na.rm = TRUE)
-    names(res2) <- c('X', 'variable', 'value')
-    res2_y <- rep(1:length(res[, 1]), nVar)
-    res2 <- cbind(res2, res2_y) %>% dplyr::select(-starts_with('X'))
-    mse[k] <- sum(res ^ 2) / length(as.vector(res))
-    #incProgress(1 / K, detail = paste("Block ", k))
+      data[-(indFirstElFold[k]:(indLastElFold[k] - 1)),]
+    colnames(DataTrain) <- 1:ncol(DataTrain)
+    
+    #model1
+    mod <- modelData(model1,
+                     DataTrain,
+                     lagNum,
+                     index_vars)
+    pred <- altpredict(mod, XTest)
+    error <- computeError(mod, pred, XTest)
+    
+    error1[k] <- error[[error_metric]]
+    se1[k] <- error[['sd']]
   }
-  #})
-  list(sum(mse) / K, res2)
+  return(data.frame(cbind(error1, se1)))
 }
 
 
@@ -360,11 +358,14 @@ prepCompTP.var <- function(model, model_params) {
   return(list(phi = phi, inno = inno, lm = lm))
 }
 
+
 #' Parent function for computing the MSE for a particular model
 #'
 #' \code{computeTP} returns the residuals in matrix-format from a fitted timeseries model.
 #' @param model A fitted ts model, currently ar, arest (from ar.multivariate) and var are supported
 #' @return A matrix of residuals, with columns being the variables.
+#' 
+#' 
 computeTP <- function(nVar,
                       time,
                       error,
@@ -483,7 +484,7 @@ searchTP <- function(nVar,
   backup_counter <- 0
   mod1_best <- 0
   mod2_best <- 0
-  withProgress(message = 'Searching optimal timepoints', value = 0, {
+  withProgress(message = 'Calculating recommended number of time points', value = 0, {
     #stop searching if we reach max iterations or if we reach a consensus of 10
     while (counter < max_iter && found2 == FALSE) {
       #stop searching if we find a point at which model1 is better than model2 or vice versa, depending on mod value
@@ -615,7 +616,7 @@ searchTP <- function(nVar,
     }
   })
   
-  if (backup_counter >= 10) {
+  if (backup_counter >= 20) {
     found2 = TRUE
   }
   

@@ -183,16 +183,16 @@ loadingMatrixUI <- function(id, label="loading_matrix"){
     status="success",
     title="Loading Matrix",
     rHandsontableOutput(label),
-    fileInput(
-      'lmfile',
-      'Upload Loading matrix',
-      multiple = FALSE,
-      accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-    ),
-    downloadLink("downloadLMDataset", "Download Loading Matrix"),
+    # fileInput(
+    #   'lmfile',
+    #   'Upload Loading matrix',
+    #   multiple = FALSE,
+    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    # ),
     sidebar_width = 25,
-    sidebar_start_open = TRUE,
+    sidebar_start_open = FALSE,
     sidebar_content = tagList(
+      downloadLink("downloadLMDataset", "Download Loading Matrix")
     )
   )
 }
@@ -210,7 +210,7 @@ updated_lm <- reactive({
     colnames(lm_output) <- colnames(filedata_updated())
     rownames(lm_output) <- colnames(filedata_updated())
     print(lm_output)
-  }else if(!is.null(input_df$df)){
+  }else if(input$select_simulation_parameter_origin == 'Manual'){
     lm_output <- matrix(0,input$nVar,input$nVar)
     diag(lm_output)<-1
     colnames(lm_output) <- c(paste("V",1:ncol(lm_output),sep=""))
