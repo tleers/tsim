@@ -87,7 +87,10 @@ computeData.pcvar <- function(nVar,
 
   inno <- mod_vars$inno
   phi <- mod_vars$phi
+  print(inno)
+  print(phi)
   if(val){
+    print("Validating transition and innovation matrix.")
     if(!validate_phi(phi)){
       warning("Transition matrix invalid")
       return(NULL)
@@ -100,6 +103,7 @@ computeData.pcvar <- function(nVar,
         return(NULL)
       }
     }
+    print("Matrices are valid.")
   }
   
   loading_matrix <- mod_vars$lm

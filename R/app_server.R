@@ -8,9 +8,9 @@
 #' @import viridis
 
 app_server <- function(input, output, session) {
-  observeEvent(input$browser,{
-    browser()
-  })
+  # observeEvent(input$browser,{
+  #   browser()
+  # })
   models <- dir('models')
   models <- paste0('models/', models)
   for(i in 1:length(models)){
@@ -97,6 +97,20 @@ app_server <- function(input, output, session) {
   #     shinyjs::removeClass(selector="body",class="control-sidebar-open")
   #     }
   # })
+  
+  tp_tab_script<-renderUI({
+      if (input$tabs == "tpestimation") {
+        tags$script(HTML(
+          "var element = document.getElementById('body');
+          element.classList.add('control-sidebar-open');"
+        ))
+      } else {
+        tags$script(HTML(
+          "var element = document.getElementById('body');
+      element.classList.add('control-sidebar-open');"
+        ))
+        }
+  })
   
   #DOWNLOAD
   output$downloadInnoDataset <- downloadHandler(
@@ -617,7 +631,11 @@ app_server <- function(input, output, session) {
   priority = 100)
   
   id_var <- reactive({
-    input$select_dataset_id_var
+    if(!is.null(input$select_dataset_id_var) && input$select_dataset_id_var != 'None'){
+      input$select_dataset_id_var
+    } else {
+      NULL
+    }
   })
   
   id_var_number <- reactive({
@@ -664,8 +682,15 @@ app_server <- function(input, output, session) {
                          'nVar',
                          label="Number of variables:",
                          value=numVarsData()
-      )
-    }
+      ) 
+      } else {
+        updateNumericInput(session,
+                           'nVar',
+                           label="Number of variables:",
+                           value=numVarsData()
+        )
+      }
+    
   })
   
   observeEvent({input$data_option
@@ -1049,22 +1074,22 @@ app_server <- function(input, output, session) {
   })
   
   mod_params <- reactive({
-    if(!is.null(tmod) && input$select_simulation_parameter_origin != 'Manual'){
+    if(!is.null(tmod) && data_simulation_parameter_origin() != 'Manual'){
       mod_params<-relevantModelParameters(tmod())
     } else {
       mod_params<-currentModelParameters(input$selection1)
     }
-    print(mod_params)
+    #print(mod_params)
     mod_params
   })
   
   filedata_updated <- reactive ({
     if(!is.null(input_df$df)){
-      if(input$select_dataset_id_var!='None' && !is.null(loaded_dataset_id_value())){
+      if(!is.null(id_var()) && !is.null(loaded_dataset_id_value())){
         input_df$df %>% 
           dplyr::filter_at(id_var_number(), all_vars(. == as.integer(loaded_dataset_id_value()))) %>% 
           dplyr::select(-starts_with(input$select_dataset_id_var)) 
-      } else if (input$select_dataset_id_var !='None' && is.null(loaded_dataset_id_value())){
+      } else if (!is.null(id_var()) && is.null(loaded_dataset_id_value())){
         input_df$df %>% 
           dplyr::select(-starts_with(input$select_dataset_id_var))
       } else {
@@ -1226,7 +1251,7 @@ app_server <- function(input, output, session) {
                                input$selection1,
                                val=TRUE,
                                burn=1000,
-                               mod_params()#model-specific parameters
+                               currentModelParameters(input$selection1)#model-specific parameters
       )
       )
     

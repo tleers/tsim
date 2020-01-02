@@ -30,6 +30,8 @@ app_ui <- function(request) {
       dashboardSidebar(
         sidebarMenuOutput("menu")
       ),
+      uiOutput('tp_tab_script'),
+      
       rightsidebar=rightSidebar(
         box(width=2,
             actionButton("browser", "debug")
@@ -299,10 +301,8 @@ app_ui <- function(request) {
                               max = 1,
                               step = 0.01
                             ),
-                            conditionalPanel(
-                              condition="input.select_simulation_parameter_origin == 'Manual'",
-                              uiOutput('num_var_sim')
-                            ),
+                              uiOutput('num_var_sim'),
+                            
                             uiOutput('num_tp_sim'),
                             ####Parameters from model
                             actionButton("submit1", "Submit")
