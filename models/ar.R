@@ -85,11 +85,15 @@ modelDataParams.var<-function(model){
 }
 
 modelDataParams.pcvar<-function(model){
+<<<<<<< HEAD
   if(!is.null(input$ncomp)){
     return(input$ncomp)
   } else {
     return(NULL)
   }
+=======
+  return(input$ncomp)
+>>>>>>> 6c3be1ae169060dd4b9b595961cf4f02aa95621b
 }
 
 modelDataArgs.ar <- function(model){

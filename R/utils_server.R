@@ -305,7 +305,11 @@ computeCV <- function(
   indFirstElFold <- c(1, indLastElFold[-K])
   error1 <- matrix(0, K, 1)#error metric model1
   se1 <- matrix(0, K, 1)#SE model1
+<<<<<<< HEAD
   model1<-model
+=======
+
+>>>>>>> 6c3be1ae169060dd4b9b595961cf4f02aa95621b
   #withProgress(message = 'Computing blocked CV', value = 0, {
   for (k in 1:K) {
     # Prepare test data
