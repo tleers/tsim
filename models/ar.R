@@ -55,22 +55,22 @@ searchTPArgs <- function(model){
 
 searchTPArgs.arest <- function(model){
   return(list(input$nVar,
-             input$nTime,
-             input$error,
-             input$selection1,
-             tp_selected_model1(),
-             tp_selected_model2(),
-             input$lagNum,
-             K,
-             max_iter,
-             stepsize_init,
-             stepsize_scaler,
-             loaded_dataset_index_variable(),
-             error_metric,
-             current_phi_input(),
-             current_inno_input()
-             #current_lm_input()
-             ))
+              input$nTime,
+              input$error,
+              input$selection1,
+              tp_selected_model1(),
+              tp_selected_model2(),
+              input$lagNum,
+              K,
+              max_iter,
+              stepsize_init,
+              stepsize_scaler,
+              loaded_dataset_index_variable(),
+              error_metric,
+              current_phi_input(),
+              current_inno_input()
+              #current_lm_input()
+  ))
 }
 
 modelDataParams <- function(model){
@@ -85,15 +85,11 @@ modelDataParams.var<-function(model){
 }
 
 modelDataParams.pcvar<-function(model){
-<<<<<<< HEAD
   if(!is.null(input$ncomp)){
     return(input$ncomp)
   } else {
     return(NULL)
   }
-=======
-  return(input$ncomp)
->>>>>>> 6c3be1ae169060dd4b9b595961cf4f02aa95621b
 }
 
 modelDataArgs.ar <- function(model){
@@ -263,8 +259,8 @@ altpredict.arest <- function(model,data){
 #########SHINY-SPECIFIC----------
 ar_sim_server_mod <- function(input, output, session, data, left, right){
   
-
-
+  
+  
   
   observeEvent({input$nDiagPhi
     input$nInnoCovar
@@ -298,7 +294,7 @@ ar_sim_server_mod <- function(input, output, session, data, left, right){
 
 simRenderUI.ar<-function(id){
   tagList(
-)
+  )
 }
 
 simRenderE.ar<-function(input, output, session, input_df, r, estParams){
