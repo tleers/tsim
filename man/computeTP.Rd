@@ -5,7 +5,8 @@
 \title{Parent function for computing the MSE for a particular model}
 \usage{
 computeTP(nVar, time, error, gen_model, model1 = "ar", model2 = "var",
-  K = 5, index_vars, lagNum = 1, error_metric = "mse", model_params)
+  K = 5, index_vars, lagNum = 1, error_metric = "mse", model_params,
+  compMod1, compMod2)
 }
 \arguments{
 \item{model}{A fitted ts model, currently ar, arest (from ar.multivariate) and var are supported}

@@ -4,8 +4,10 @@
 #' Multivariate version of AR
 #' 
 #' \code{ar.multivariate} returns arest model
+#' 
+EST_method <<- 'ols'
 ar.multivariate <- function(x,aic=TRUE,order.max=1,na.action=na.fail,demean=TRUE,intercept=demean,type='const',...){
-  method<-AR_METHOD
+  method<-EST_method
   arest<-NULL
   arest$resid <- matrix(0,ncol=ncol(x),nrow=nrow(x))
   for(i in 1:ncol(x)){
@@ -21,9 +23,9 @@ ar.multivariate <- function(x,aic=TRUE,order.max=1,na.action=na.fail,demean=TRUE
     arest$x.mean[i] <- tmp$x.mean
     arest$aic[i] <- head(tmp$aic,n=order.max)
     arest$partialacf[i] <- tmp$partialacf
-    if(AR_METHOD == 'burg'){
+    if(EST_method == 'burg'){
       arest$asy.coef[i] <- tmp$asy.var.coef
-    } else if (AR_METHOD == 'ols'){
+    } else if (EST_method == 'ols'){
       arest$asy.coef[i] <- tmp$asy.se.coef[[2]]
     }
     arest$fit_list[[i]] <- tmp
@@ -81,22 +83,11 @@ modelDataParams <- function(model){
 modelDataParams.ar<-function(model){
 }
 
-modelDataParams.var<-function(model){
-}
-
-modelDataParams.pcvar<-function(model){
-  if(!is.null(input$ncomp)){
-    return(input$ncomp)
-  } else {
-    return(NULL)
-  }
-}
-
 modelDataArgs.ar <- function(model){
   return(
     list(
       input$selection1,
-      filedata_updated() %>% standardize.popsd,
+      filedata_updated(),
       selectedLagNum(),
       loaded_dataset_index_variable())
   )
@@ -128,6 +119,9 @@ modelName.arest<-modelName.ar
 
 ####Data-generating function----
 
+#SOURCE NOTE: Code is based on code distributed by the paper of Bulteel, Tuerlinckx, Brose, and Ceulemans
+#TITLE:Improved Insight into and Prediction of Network Dynamics by Combining VAR and Dimension Reduction
+#doi:10.1080/00273171.2018.1516540
 computeData.ar <-function(nVar,
                           time,
                           error,
@@ -147,12 +141,11 @@ computeData.ar <-function(nVar,
     }
     
     if(!validate_inno(inno)){
-      inno<-fix_inno(inno)
-      if(is.null(inno)){
-        warning("Innovation matrix invalid")
-        return(NULL)
-      }
+      warning("Innovation matrix invalid")
+      return(NULL)
     }
+    print("Matrices are valid.")
+    
   }
   
   #Generate errors
@@ -165,11 +158,10 @@ computeData.ar <-function(nVar,
   
   #withProgress(message = paste0('Simulating ',model), value = 0, {
   for (row in 2:(time + burn)) {
-    simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
+    simdata[row, ] = simdata[(row - 1), ] %*% phi + U[row, ]
   }
   randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
-  #E <- sqrt(error) * randomError
-  E <- 0
+  E <- sqrt(error) * randomError
   Y <- simdata[-(1:burn), ]  + E
   #})
   
@@ -183,7 +175,7 @@ modelData.ar <- function(model, dataset,lagNum,index_vars = NULL,...) {
   ar.multivariate(
     dataset, #%>% dplyr::select(-index_vars),
     type = 'const',
-    method = AR_METHOD,
+    method = EST_method,
     aic=FALSE,
     order.max=lagNum
   )
@@ -297,6 +289,13 @@ simRenderUI.ar<-function(id){
   )
 }
 
+output$ar_sim_output <- renderUI({
+  tagList(
+    transitionMatrixUI(ns(session)$ns,'phi'),
+    innovationMatrixUI(ns(session)$ns,'inno')
+  )
+})
+
 simRenderE.ar<-function(input, output, session, input_df, r, estParams){
   
   # 
@@ -315,6 +314,8 @@ simRenderE.ar<-function(input, output, session, input_df, r, estParams){
 #       step = 0.1
 #     ),
 
+output$ar_mod_output <- renderUI({
+})
 
 transitionMatrixUI <- function(id, label="transition_matrix"){
   boxPlus(

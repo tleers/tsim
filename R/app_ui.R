@@ -50,11 +50,15 @@ app_ui <- function(request) {
                         choices=model_list,
                         selected='ar'
             ),
+            p(id='mod_anchor1',''),
+            
             selectInput(inputId='tp_model2',
                         label='Choose comparison model 2',
                         choices=model_list,
                         selected='var'
             ),
+            p(id='mod_anchor2',''),
+            
             conditionalPanel(
               condition="input.tp_model1 == 'pcvar'"
               #uiOutput('ncomp_pca')
@@ -83,6 +87,7 @@ app_ui <- function(request) {
             numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=100),
             uiOutput('select_stepsize_init_element'),
             numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
+            numericInput(inputId='threshold',label='Threshold',min=1,max=5000,value=30),
             uiOutput('num_searchtp_sim')
           )
         ),
@@ -149,7 +154,7 @@ app_ui <- function(request) {
                                                           '"'),
                                              circle = TRUE, status = "danger", 
                                              icon = icon("file-text", lib = "font-awesome"), width = "300px",
-                                             tooltip = tooltipOptions(title = "Click to set csv file parameters!")
+                                             tooltip = tooltipOptions(title = "Click to set csv file parameters.")
                                            )
                           )
                       ),
@@ -230,11 +235,8 @@ app_ui <- function(request) {
                                            conditionalPanel(condition = "output.loaded_table_flag == '1' && output.class_df_flag == false && input.data_option == 'data_reshape'",
                                                             actionButton("remove_var", "Remove variable"))
                                            
+                                       )
                                        ),
-                                       box(width=2,uiOutput('id_variable'),
-                                           conditionalPanel(condition = "output.loaded_table_flag == '1' && input.select_dataset_id_var != 'None'", 
-                                                            uiOutput('dataset_id_value'))
-                                       )),
                       conditionalPanel(condition =  "output.loaded_table_flag == '1' && output.class_df_flag == false ",
                                        box(width = 4, title = "List of Variables",
                                            DT::dataTableOutput("data_tab2_var"),
@@ -291,16 +293,16 @@ app_ui <- function(request) {
                               "Choose your data-generating model.",
                               model_list
                             ),
-                            numericInput('lagNum','Choose the number of lags',min=1,max=100,value=1),
+                            numericInput('lagNum','Choose the number of lags',min=1,max=1,value=1),
                             uiOutput('simulation_parameter_origin'),
-                            numericInput(
-                              "nError",
-                              "Measurement error:",
-                              0,
-                              min = 0,
-                              max = 1,
-                              step = 0.01
-                            ),
+                            # numericInput(
+                            #   "nError",
+                            #   "Measurement error:",
+                            #   0,
+                            #   min = 0,
+                            #   max = 1,
+                            #   step = 0.01
+                            # ),
                               uiOutput('num_var_sim'),
                             
                             uiOutput('num_tp_sim'),

@@ -8,22 +8,21 @@
 #' @import viridis
 
 app_server <- function(input, output, session) {
-  # observeEvent(input$browser,{
-  #   browser()
-  # })
+  observeEvent(input$browser,{
+    browser()
+  })
   models <- dir('models')
   models <- paste0('models/', models)
   for(i in 1:length(models)){
     source(models[i],local=TRUE)
   }
   source('R/utils_server.R',local=TRUE)
-  print(modelData.var)
-  print(models)
+  print(paste0('Loaded model: ',models))
   model_list <- dir('models')
   model_list <- unlist(strsplit(model_list,'.R'))
   
   #------------------------------ Initialize datasets in memory -----------------------
-  data(alt_data95)
+  data(Bringmann2016)
   data(sim_var)
   
   df_list <- c(names(which(sapply(.GlobalEnv, is.data.frame))),
@@ -71,7 +70,6 @@ app_server <- function(input, output, session) {
                icon = icon("table"), 
                startExpanded = TRUE,
                #conditionalPanel(condition="is.null(input.input_df)==FALSE",
-               uiOutput('data_select_top'),
                #),
                menuSubItem("Load", tabName = "data1"),
                menuSubItem("Initialize",tabName = "data2")
@@ -86,7 +84,14 @@ app_server <- function(input, output, session) {
                menuSubItem("Model Comparison", tabName = "modelcomparison"),
                menuSubItem("Timepoint Estimation", tabName="tpestimation")
       ),
-      menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis")
+      menuItem("Network Analysis",icon=icon("project-diagram"),tabName="networkanalysis"),
+      conditionalPanel(condition = "output.loaded_table_flag == '1'", 
+                       uiOutput('data_select_top'),
+                       uiOutput('id_variable')
+      ),
+      conditionalPanel(condition = "output.loaded_table_flag == '1' && input.select_dataset_id_var != 'None'", 
+                       uiOutput('dataset_id_value')
+      )
     )
   })
   
@@ -130,16 +135,7 @@ app_server <- function(input, output, session) {
       write.csv(mod_params()$phi, file)
     }
   )
-  
-  output$downloadLMDataset <- downloadHandler(
-    filename = function() {
-      paste("lm-", Sys.Date(), ".csv", sep="")
-    },
-    content = function(file) {
-      write.csv(mod_params()$lm, file)
-    }
-  )
-  
+
   #TABLES
   
   #currently active - what is actually in the table
@@ -172,6 +168,53 @@ app_server <- function(input, output, session) {
     }
   })
   
+  computePhi <- function(model,sim_params, ...){
+    class(model)<-tolower(model)
+    UseMethod('computePhi',model)
+  }
+  
+  computePhi.pcvar <- function(model,sim_params,...) {
+    ncomp<-sim_params$ncomp
+    Phi <- matrix(0, ncomp, ncomp)
+    diag(Phi) <- .5 # The diagonal elements
+    Phi[diag(1, ncomp) == 0] <- .2 # The off-diagonal elements
+    return(Phi)
+  }
+  
+  computePhi.ar <- function(model, sim_params, ...) {
+    N<-sim_params$nvar
+    Phi <- matrix(0, N, N)
+    diag(Phi) <- .3 # The diagonal elements
+    Phi[diag(1, N) == 0] <- 0 # The off-diagonal elements
+    return(Phi)
+  }
+  
+  computePhi.var <- function(model, sim_params, ...) {
+    N<-sim_params$nvar
+    Phi <- matrix(0, N, N)
+    diag(Phi) <- .3 # The diagonal elements
+    Phi[diag(1, N) == 0] <- .2 # The off-diagonal elements
+    return(Phi)
+  }
+  
+  simParams <- function(model){
+    class(model) <- tolower(model)
+    UseMethod("simParams",model)
+  }
+  
+  simParams.pcvar <- function(model){
+    return(list(ncomp=input$side_ncomp))
+  }
+  
+  simParams.ar <- function(model){
+    return(list(nvar=input$nVar))
+  }
+  
+  simParams.var <- function(model){
+    return(list(nvar=input$nVar))
+  }
+
+  
   #what is the value based off of dataset: initial values for tables
   updated_phi <- reactive({
     if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
@@ -179,30 +222,53 @@ app_server <- function(input, output, session) {
       colnames(phi_output) <- colnames(filedata_updated())
       rownames(phi_output) <- colnames(filedata_updated())
     } else if(input$select_simulation_parameter_origin == 'Manual'){
-      if(input$selection1 %in% c('var','pcvar')){
-        phi_output<-computePhi(input$nVar, .2, .1)
-        if(ncol(phi_output)>1){
-          phi_output[1,2]<-.5
-          phi_output[2,1]<-.45
-        }
-      } else {
-        phi_output<-computePhi(input$nVar, .2, 0)
-      }
-      colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
-      rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep=""))
+        phi_output<-computePhi(input$selection1,simParams(input$selection1))
+        colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
+        rownames(phi_output) <- c(paste("V",1:nrow(phi_output),sep=""))
     } else {
       phi_output <- NULL
     }
     phi_output
   })
   
+  
+  computeSigma <- function(model, sim_params, ...){
+    class(model)<-tolower(model)
+    UseMethod("computeSigma",model)
+  }
+  
+  computeSigma.ar <- function(model, sim_params, ...) {
+    N<-sim_params$nvar
+    Sigma <- matrix(0, N, N)
+    diag(Sigma) <- .5
+    Sigma[diag(1, N) == 0] <- .3
+    return(Sigma)
+  }
+  
+  computeSigma.var <- function(model, sim_params, ...) {
+    N<-sim_params$nvar
+    Sigma <- matrix(0, N, N)
+    diag(Sigma) <- .5
+    Sigma[diag(1, N) == 0] <- .3
+    return(Sigma)
+  }
+  
+  computeSigma.pcvar <- function(model, sim_params, ...) {
+    ncomp<-sim_params$ncomp
+    Sigma <- matrix(0, ncomp, ncomp)
+    diag(Sigma) <- .5
+    Sigma[diag(1, ncomp) == 0] <- .3
+    return(Sigma)
+  }
+  
   updated_inno <- reactive({
     if(!is.null(input_df$df) && (input$select_simulation_parameter_origin != 'Manual')){
       inno_output <- mod_params()$inno
-      colnames(inno_output) <- colnames(filedata_updated())
-      rownames(inno_output) <- colnames(filedata_updated())
+      colnames(inno_output) <- colnames(filedata_updated())[1:ncol(inno_output)]
+      rownames(inno_output) <- colnames(filedata_updated())[1:nrow(inno_output)]
+      
     } else if(input$select_simulation_parameter_origin == 'Manual'){
-      inno_output<-computeSigma(input$nVar, .5,.1)
+      inno_output<-computeSigma(input$selection1,simParams(input$selection1))
       colnames(inno_output) <- c(paste("V",1:ncol(inno_output),sep=""))
       rownames(inno_output) <- c(paste("V",1:nrow(inno_output),sep=""))
     } else {
@@ -211,6 +277,7 @@ app_server <- function(input, output, session) {
     inno_output
   })
   
+  ##### SOURCE NOTE: SIGNIFICANT PART OF CODE USED FOR DATASET LOADING IN DT1 IS BASED ON https://github.com/RamiKrispin/Shiny-App
   #------------------------------ Data Tab 1 - DT1 ---------------------------------------------###############################
   
   #------------------------------ DT1 summary boxes -------------------------------------
@@ -323,7 +390,10 @@ app_server <- function(input, output, session) {
       df_view <- NULL
       prev_table$class <- NULL
       prev_table$df_name <- substr(prev_table$file_name,1,regexpr(".", prev_table$file_name, fixed = T)-1)
-      df_view <- read.csv(prev_table$file_path, stringsAsFactors = FALSE)
+      df_view <- read.csv(prev_table$file_path, stringsAsFactors = FALSE,
+               header = input$header,
+               sep = input$sep,
+               quote = input$quote)
       prev_table$class <- class(df_view)
       
     } else {
@@ -427,6 +497,7 @@ app_server <- function(input, output, session) {
                    lengthMenu = c(10, 25, 50))
   )
   
+  ##### SOURCE NOTE: SIGNIFICANT PART OF CODE USED FOR DATA VISUALIZATION IN DT2 IS BASED ON https://github.com/RamiKrispin/Shiny-App
   #------------------------------ DATA TAB 2 -------------------------------------   
   #------------------------------ DT2 summary boxes -------------------------------------
   output$data_name <- renderValueBox({
@@ -507,27 +578,7 @@ app_server <- function(input, output, session) {
       max = 150
     )
   })
-  
-  output$ncomp_pca <- renderUI({
-    numericInput(
-      "ncomp",
-      "Number of components:",
-      if(!is.null(input$select_dataset_id_var) && !is.null(input_df$df)){
-        if(input$select_dataset_id_var != 'None'){
-          ncol(input_df$df)-1
-        } else {
-          ncol(input_df$df)
-        }
-      } else if (!is.null(input_df$df)){
-        ncol(input_df$df)
-      } else {
-        1
-      },
-      min = 1,
-      max = ncol(input_df$df)
-    )
-  })
-  
+
   output$num_tp_sim <- renderUI({
     numericInput(
       "nTime",
@@ -594,11 +645,13 @@ app_server <- function(input, output, session) {
         input_df$df_list[[which(names(input_df$df_list) == input$select_df)]]
       )
       input_df$class <- input_df$df_class[[which(names(input_df$df_list) == input$select_df)]]
+      input_df$df <- data.frame(input_df$df)
       uiOutput('data_tab2_table')
       
       input_df$df <- (
         input_df$df_list[[which(names(input_df$df_list) == input$select_df)]]
       )
+      input_df$df <- data.frame(input_df$df)
       active_df$class <- input_df$df_class[[which(names(input_df$df_list) == input$select_df)]]
       
     } else{
@@ -681,13 +734,18 @@ app_server <- function(input, output, session) {
       updateNumericInput(session,
                          'nVar',
                          label="Number of variables:",
-                         value=numVarsData()
+                         value=numVarsData(),
+                         max=numVarsData(),
+                         min=numVarsData()
+                         
       ) 
       } else {
         updateNumericInput(session,
                            'nVar',
                            label="Number of variables:",
-                           value=numVarsData()
+                           value=numVarsData(),
+                           max=150,
+                           min=1
         )
       }
     
@@ -1114,9 +1172,32 @@ app_server <- function(input, output, session) {
   # })
   
   prev_sim <<- reactiveVal(NULL)
+
+  observeEvent({input$tp_model1},{
+    if(!is.null(prev_mod())){
+      removeUI(selector=paste0('div#',prev_mod(),'_mod_output'))
+    }
+    insertUI(
+      selector='#mod_anchor1',
+      where='afterEnd',
+      ui=uiOutput(paste0(input$tp_model1,'_mod_output'))
+    )
+    prev_mod(input$tp_model1)
+  })
+  
+  observeEvent({input$tp_model2},{
+    if(!is.null(prev_mod2())){
+      removeUI(selector=paste0('div#',prev_mod2(),'_mod_output'))
+    }
+    insertUI(
+      selector='#mod_anchor2',
+      where='afterEnd',
+      ui=uiOutput(paste0(input$tp_model2,'_mod_output'))
+    )
+    prev_mod2(input$tp_model2)
+  })
   
   observeEvent({input$selection1},{
-    
     if(!is.null(prev_sim())){
       removeUI(selector=paste0('div#',prev_sim(),'_sim_output'))
     }
@@ -1127,25 +1208,6 @@ app_server <- function(input, output, session) {
       ui=uiOutput(paste0(input$selection1,'_sim_output'))
     )
     prev_sim(input$selection1)
-    # model_ui_list <- getModelUIList(input$selection1)
-    # for(i in 1:length(model_ui_list)){
-    #   args <- list()
-    #   
-    #   for(j in 1:length(model_ui_list[[i]][[2]])){
-    #     args[[j]] <- get(model_ui_list[[i]][[2]])
-    #   }
-    #    
-    #   do.call(get(model_ui_list[[i]][[1]]),model_ui_list[[i]][[2]])
-    # }
-    
-  })
-  
-  output$pcvar_sim_output <- renderUI({
-    tagList(
-      transitionMatrixUI(ns(session)$ns,'phi'),
-      innovationMatrixUI(ns(session)$ns,'inno'),
-      loadingMatrixUI(ns(session)$ns,'loading_matrix')
-    )
   })
   
   output$ar_sim_output <- renderUI({
@@ -1254,10 +1316,17 @@ app_server <- function(input, output, session) {
                                currentModelParameters(input$selection1)#model-specific parameters
       )
       )
+
     
     if(!is.null(r$data)){
-      showNotification("Parameters succesfully loaded. Simulated dataset initialized.",
-                       type="message")
+      if(any(colMeans(matrix(r$data,ncol=input$nVar))==0)){
+        r$data <- NULL
+        showNotification("Dataset simulation succesful, but one or multiple output columns are only zero.", type='error')
+      } else {
+        showNotification("Parameters succesfully loaded. Simulated dataset initialized.",
+                         type="message")
+      }
+
     } else {
       showNotification("Parameters failed to load. Simulated dataset failed to initialize.",
                        type="error")
@@ -1307,7 +1376,23 @@ app_server <- function(input, output, session) {
                  value=5
     )
   })
+  tpModParams.pcvar <- function(model,...){
+    return(list(
+      ncomp=input$ncomp
+    ))
+  }
   
+  tpModParams <- function(model,...){
+    class(model) <- tolower(model)
+    UseMethod('tpModParams',model)
+  }
+  
+  
+  tpModParams.var <- function(model,...){
+  }
+  
+  tpModParams.ar <- function(model,...){
+  }
   observeEvent(input$submitTPS, {
     if (is.null(r$data)) {
       return(NULL)
@@ -1320,7 +1405,8 @@ app_server <- function(input, output, session) {
     stepsize_scaler <- input$select_stepsize_scaler
     stepsize_init <-  current_stepsize_init_selected()
     
-    
+
+
     
     tp <- searchTP(
       input$nVar,
@@ -1334,10 +1420,15 @@ app_server <- function(input, output, session) {
       max_iter,
       stepsize_init,
       stepsize_scaler,
+      input$threshold,
       loaded_dataset_index_variable(),
       error_metric,
-      mod_params()
+      currentModelParameters(input$selection1),
+      tpModParams(input$tp_model1),
+      tpModParams(input$tp_model2)
     )
+    
+
     
     #FUNCTION RETURNS NULL IF ERRORS OCCURR AND AS SUCH WE WILL NOT RENDER ANYTHING
     if(!is.null(tp)){
@@ -1453,9 +1544,10 @@ app_server <- function(input, output, session) {
             #geom_text(data=subset(pldf,count<=1),position='dodge',aes(label=count,vjust=max_mse/10*count)) +
             scale_colour_manual(values = c("Blue", "Red")) +
             scale_y_continuous(name=toupper(error_metric)) +
-            scale_x_discrete(name="Time point") +
-            theme_classic() 
-          
+            scale_x_continuous(name="Time points") +
+            
+            theme_classic() +
+            labs(fill="(Model,Fold)")
           
           ggplotly(p) %>% 
             layout(autosize=TRUE)
@@ -1566,6 +1658,7 @@ app_server <- function(input, output, session) {
               guides(fill=guide_legend())+
               scale_fill_gradientn(name = "Model2 - Model1",colors=c('Red','Blue'))+
               geom_text(aes(label=..count..), y=0, stat='count', colour="black", size=4) +
+              
               theme_ridges(center=TRUE,grid=TRUE)
             
             plot(p)
@@ -1607,6 +1700,10 @@ app_server <- function(input, output, session) {
           }
         })
       }
+      ##TP SEARCH FAILED
+    } else {
+      showNotification("TP estimation failed due to an undefined error.",
+                       type="error")
     }
   })
   
@@ -1669,7 +1766,7 @@ app_server <- function(input, output, session) {
     if(input$mc_select_data == 'Simulated dataset'){
       mc_data<-r$data
     } else {
-      mc_data<-input_df$df
+      mc_data<-filedata_updated()
     }
     mc_data
   })
@@ -1838,7 +1935,7 @@ app_server <- function(input, output, session) {
   output$networkplot <- renderPlot({
     if(!is.null(selected_network_vars())){
       selected_cols <- selected_network_vars()
-      d <- input_df$df %>% dplyr::select(selected_cols)
+      d <- filedata_updated() %>% dplyr::select(selected_cols)
       Q <- qgraph(cor_auto(d,detectOrdinal = FALSE),
                   graph = input$select_graph_type, 
                   treshold=input$select_treshold,

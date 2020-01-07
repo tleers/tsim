@@ -1,55 +1,14 @@
-
-
 #PC-VAR(p) implementation based on Bulteel et al. 2018, modified by Tim Leers
+require(psych)
 
-#shiny-specific arguments needed for computedata
-computeDataArgs.pcvar <- function(model){
-  list(input$nVar,
-       input$nTime,
-       0,
-       input$selection1,
-       val=TRUE,
-       burn=1000,
-       #model-specific parameters
-       current_phi_input(),
-       current_inno_input(),
-       current_lm_input())
-}
-
-computeDataArgsRAW.pcvar <- function(model){
-  list(nVar,
-       time,
-       error,
-       gen_model,
-       val=FALSE,
-       burn=1000,
-       #model-specific parameters
-       model_params$phi,
-       model_params$inno,
-       model_params$lm
-  )
-}
-
-modelDataArgsRAW.pcvar <- function(model){
+modelDataArgs.pcvar <- function(model){
   return(
     list(
       input$selection1,
       filedata_updated(),
       selectedLagNum(),
       loaded_dataset_index_variable(),
-      input$ncomp)
-  )
-}
-
-modelDataArgs.pcvar <- function(model){
-  return(
-    list(
-      input$selection1,
-      filedata_updated() %>% standardize.popsd,
-      selectedLagNum(),
-      loaded_dataset_index_variable(),
-      ncol(filedata_updated())#input$ncomp)
-  )
+      input$side_ncomp)
   )
 }
 
@@ -68,13 +27,44 @@ currentModelParameters.pcvar<-function(tmod){
   ))
 }
 
+####Data-generating arguments (SHINY)----
+computeDataArgs.pcvar <- function(model){
+  list(input$nVar,
+       input$nTime,
+       0,
+       input$selection1,
+       val=TRUE,
+       burn=1000,
+       #model-specific parameters
+       current_phi_input(),
+       current_inno_input(),
+       current_lm_input())
+}
 
 ####Name function-----
 modelName.pcvar<-function(model){
   return('Principal Component Vector Autoregression')
 }
 
+
+
 ####Data-generating function----
+validate_lm <- function(lm){
+  if(any(is.na(lm))){
+    return(FALSE)
+  } else {
+    if(any(colMeans(lm)==TRUE) | any(rowMeans(lm)==TRUE) | any(abs(lm)>1)){
+      return(FALSE)
+    } else {
+      return(TRUE)
+    }
+  }
+}
+
+#SOURCE NOTE: Code is based on code distributed by the paper of Bulteel, Tuerlinckx, Brose, and Ceulemans
+#TITLE:Improved Insight into and Prediction of Network Dynamics by Combining VAR and Dimension Reduction
+#doi:10.1080/00273171.2018.1516540
+
 computeData.pcvar <- function(nVar,
                               time,
                               error,
@@ -83,12 +73,10 @@ computeData.pcvar <- function(nVar,
                               burn=1000,
                               mod_vars,
                               ....){
-  
-
   inno <- mod_vars$inno
   phi <- mod_vars$phi
-  print(inno)
-  print(phi)
+  loading_matrix <- mod_vars$lm
+  nComp<-ncol(loading_matrix)
   if(val){
     print("Validating transition and innovation matrix.")
     if(!validate_phi(phi)){
@@ -104,35 +92,48 @@ computeData.pcvar <- function(nVar,
       }
     }
     print("Matrices are valid.")
+    
+    if(!validate_lm(loading_matrix)){
+      warning("Loading matrix invalid")
+      return(NULL)
+    }
+    print("Matrices are valid.")
   }
-  
-  loading_matrix <- mod_vars$lm
-  
-  #Generate errors
-  innovations <- mvtnorm::rmvnorm(time+burn,rep(0,nVar),inno)
+  #Generate innovations
+  innovations <- mvtnorm::rmvnorm(time+burn,rep(0,nComp),inno)
   
   #Create empty matrix
-  U <- matrix(innovations, time + burn, nVar)
-  simdata <- matrix(0, time + burn, nVar)
+  U <- matrix(innovations, time + burn, nComp)
+  simdata <- matrix(0, time + burn, nComp)
   simdata[1, ] <- U[1, ]
   
   for (row in 2:(time + burn)) {
-    simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
+    simdata[row, ] = simdata[(row - 1), ] %*% phi + U[row, ]
   }
   randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
-  #E <- sqrt(error) * randomError
-  E <- 0
+  E <- sqrt(error) * randomError
   Y <- simdata[-(1:burn), ] 
-  # 4. Combine component scores F, with loading matrix B and error values E to obtain latent structure
+
   Y <- Y %*% t(loading_matrix) + E # Y is the toy data
   return(Y)
 }
 
+####Model fit arguments (SHINY)----
+modelDataParams.pcvar<-function(model){
+  if(!is.null(input$ncomp)){
+    return(input$ncomp)
+  } else {
+    return(NULL)
+  }
+}
+
+
 ####Model fit function----
-modelData.pcvar <- function(model, dataset, lagNum,index_vars = NULL, ncomp=ncol(dataset)) {
-  require(psych)
-  if(is.null(ncomp)){
+modelData.pcvar <- function(model, dataset, lagNum,index_vars = NULL, mod_vars, ...) {
+  if(is.null(mod_vars$ncomp)){
     ncomp <- ncol(dataset)
+  } else {
+    ncomp <- mod_vars$ncomp
   }
   PCA_varimax<-principal(dataset,
                          nfactors=ncomp,
@@ -160,13 +161,35 @@ extractResiduals.pcvar <- function(model){
   return(model$residuals)
 } 
 
+#extract loading matrix for PCA-based methods
+extractLM <- function(model) {
+  UseMethod('extractLM', model)
+}
+
 extractLM.pcvar<-function(model){
   return(unclass(model$B_rot))
 }
 
 ####Error computation function----
 
+# computeError.pcvar <- function(model,pred,dat){
+#   error <- pracma::rmserr(dat %>% unlist() %>% as.numeric(), pred[[1]] %>% as.numeric())
+#   sqr_resid <- (dat-pred[[1]])^2
+#   #sd <- apply(sqr_resid,2,sd)/sqrt(nrow(dat))
+#   sd <- sd(as.numeric(unlist(sqr_resid)))/sqrt(nrow(dat))
+#   error<-rlist::list.append(error,sd)
+#   names(error)[[7]] <- 'sd'
+#   return(error)
+# }
+
 computeError.pcvar <- function(model,pred,dat){
+  PCA_varimax<-principal(dat,
+                         nfactors=ncol(model$B_rot),
+                         rotate="varimax")
+  F_rot<-PCA_varimax$scores
+  B_rot<-PCA_varimax$loadings
+  dat <- F_rot
+  
   error <- pracma::rmserr(dat %>% unlist() %>% as.numeric(), pred[[1]] %>% as.numeric())
   sqr_resid <- (dat-pred[[1]])^2
   #sd <- apply(sqr_resid,2,sd)/sqrt(nrow(dat))
@@ -176,22 +199,69 @@ computeError.pcvar <- function(model,pred,dat){
   return(error)
 }
 
-####Model prediction function----
+
+###Model prediction function----
 altpredict.pcvar <- function(model,data){
   pred <- matrix(0,nrow(data),ncol(data))
   #se <- matrix(0,n.ahead,ncol(data))
   se <- NULL
-  
+  loading_matrix <- extractLM(model)
+  phi <- extractPhi(model)
   data <- matrix(unlist(data),ncol=ncol(extractResiduals.pcvar(model)))
   for (i in 1:ncol(data)){
-    phi <- extractPhi(model)
     pred[1,] <- data[1,]
     for (row in 2:nrow(data)) {
-      pred[row, ] = phi %*% data[row-1,]
+      pred[row, ] = phi %*% (data[row-1,]*t(loading_matrix))
     }
   }
+  pred <- pred
   return(list(pred,se))
 }
+
+# altpredict.pcvar <- function(model,data){
+#   backup <- data
+#   PCA_varimax<-principal(data,
+#                          nfactors=ncol(model$B_rot),
+#                          rotate="varimax")
+#   F_rot<-PCA_varimax$scores
+#   B_rot<-PCA_varimax$loadings
+#   data <- F_rot
+# 
+#   pred <- matrix(0,nrow(data),ncol(data))
+#   #se <- matrix(0,n.ahead,ncol(data))
+#   se <- NULL
+#   loading_matrix <- extractLM(model)
+#   phi <- extractPhi(model)
+#   data <- matrix(unlist(data),ncol=ncol(extractResiduals.pcvar(model)))
+#   for (i in 1:ncol(data)){
+#     pred[1,] <- data[1,]
+#     for (row in 2:nrow(data)) {
+#       pred[row, ] = phi %*% data[row-1,]
+#     }
+#   }
+#   pred <- pred
+#   return(list(pred,se))
+# }
+
+# altpredict.pcvar <- function(model,data){
+#   ncomp<-nrow(B_rot)
+#   backup <- data
+#   
+#   pred <- matrix(0,ncomp,ncomp)
+#   #se <- matrix(0,n.ahead,ncol(data))
+#   se <- NULL
+#   loading_matrix <- extractLM(model)
+#   phi <- extractPhi(model)
+#   data <- matrix(unlist(data),ncol=ncol(extractResiduals.pcvar(model)))
+#   for (i in 1:ncol(data)){
+#     pred[1,] <- data[1,]
+#     for (row in 2:nrow(data)) {
+#       pred[row, ] = phi %*% data[row-1,]
+#     }
+#   }
+#   pred <- pred  %*% t(1/loading_matrix)
+#   return(list(pred,se))
+# }
 
 
 #SHINY MODULES FOR UI
@@ -212,28 +282,121 @@ loadingMatrixUI <- function(id, label="loading_matrix"){
     #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
     # ),
     sidebar_width = 25,
+    sidebar_start_open = TRUE,
+    sidebar_content = tagList(
+      numericInput(
+        'side_ncomp',
+        "Number of components",
+        if(!is.null(filedata_updated())){
+          ncol(filedata_updated())
+        } else {
+          input$nVar
+        },
+        min = 1,
+        max = if(!is.null(filedata_updated())){
+          ncol(filedata_updated())
+        } else {
+          input$nVar
+        }
+      )
+    ),
+    downloadLink("downloadLMDataset", "Download Loading Matrix")
+  )
+}
+
+transitionMatrixPCVARUI <- function(id, label="transition_matrix_pcvar"){
+  boxPlus(
+    enable_sidebar=TRUE,
+    solid_header=TRUE,
+    collapsible=TRUE,
+    status="success",
+    title='Transition Matrix PC-VAR',
+    rHandsontableOutput("phi_pcvar"),
+    # fileInput(
+    #   'phifile',
+    #   'Upload Phi matrix',
+    #   multiple = FALSE,
+    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    # ),
+    sidebar_width = 25,
     sidebar_start_open = FALSE,
     sidebar_content = tagList(
-      downloadLink("downloadLMDataset", "Download Loading Matrix")
+      downloadLink("downloadPhiPCVARDataset", "Download Phi Matrix")
+      
+      # numericInput(
+      #   "nDiagPhi",
+      #   "Diagonal coefficients:",
+      #   .1,
+      #   min = 0.1,
+      #   max = 1,
+      #   step = 0.1
+      # )
     )
   )
 }
 
-##Server: Loading matrix----
+innovationMatrixPCVARUI <- function(id, label="innovation_matrix"){
+  boxPlus(
+    enable_sidebar=TRUE,
+    solidheader=TRUE,
+    collapsible=TRUE,
+    status="success",
+    title="Innovation Matrix",
+    rHandsontableOutput("inno"),
+    # fileInput(
+    #   'innofile',
+    #   'Upload Innovation matrix',
+    #   multiple = FALSE,
+    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
+    # ),
+    sidebar_width = 25,
+    sidebar_start_open = FALSE,
+    sidebar_content = tagList(
+      downloadLink("downloadInnoDataset", "Download Innovation Matrix")
+      # numericInput(
+      #   "nInnoVar",
+      #   "Diagonal coefficients",
+      #   .01,
+      #   min = 0.01,
+      #   max = 10,
+      #   step = 0.1
+      # ),
+      # numericInput(
+      #   "nInnoCovar",
+      #   "Off-diagonal coefficients",
+      #   .01,
+      #   min = 0.01,
+      #   max = 10,
+      #   step = 0.1
+      # )
+    )
+  )
+}
+
+#DYNAMIC UI: simulation----
+output$pcvar_sim_output <- renderUI({
+  tagList(
+    transitionMatrixUI(ns(session)$ns,'phi'),
+    innovationMatrixUI(ns(session)$ns,'inno'),
+    loadingMatrixUI(ns(session)$ns,'loading_matrix')
+  )
+})
+
+##Server: Loading matrix table----
 output$loading_matrix <- renderRHandsontable({
   if(!is.null(updated_lm())){
     rhandsontable(updated_lm())
   }
 })
 
+#Server: LM updating function - used if we change parameter estimate source
 updated_lm <- reactive({
   if(!is.null(input_df$df) && (input$select_simulation_parameter_origin != 'Manual')){
     lm_output <- mod_params()$lm
-    colnames(lm_output) <- colnames(filedata_updated())
     rownames(lm_output) <- colnames(filedata_updated())
     print(lm_output)
   }else if(input$select_simulation_parameter_origin == 'Manual'){
-    lm_output <- matrix(0,input$nVar,input$nVar)
+    lm_output <- matrix(0,input$nVar,input$side_ncomp)
     diag(lm_output)<-1
     colnames(lm_output) <- c(paste("V",1:ncol(lm_output),sep=""))
     rownames(lm_output) <- c(paste("V",1:nrow(lm_output),sep=""))
@@ -243,11 +406,42 @@ updated_lm <- reactive({
   lm_output
 })  
 
-
+#Current input in the table 
 current_lm_input <- reactive({
   if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
     dlm <- hot_to_r(input$loading_matrix)
   } else if (input$select_simulation_parameter_origin == 'Manual'){
     dlm <- hot_to_r(input$loading_matrix)
   }
+})
+
+#Download LM
+output$downloadLMDataset <- downloadHandler(
+  filename = function() {
+    paste("lm-", Sys.Date(), ".csv", sep="")
+  },
+  content = function(file) {
+    write.csv(mod_params()$lm, file)
+  }
+)
+
+#timepoint search dynamic UI
+output$pcvar_mod_output <- renderUI({
+  tagList(
+    numericInput(
+      'ncomp',
+      "Number of components:",
+      if(!is.null(r$data)){
+        ncol(r$data)
+      } else {
+        1
+      },
+      min = 1,
+      max = if(!is.null(r$data)){
+        ncol(r$data)
+      } else {
+        1
+      }
+    )
+  )
 })

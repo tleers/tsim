@@ -16,7 +16,7 @@ modelDataArgs.var <- function(model){
   return(
     list(
       input$selection1,
-      filedata_updated() %>% standardize.popsd,
+      filedata_updated(),
       selectedLagNum(),
       loaded_dataset_index_variable())
   )
@@ -45,6 +45,9 @@ modelName.var<-function(model){
 modelName.varest<-modelName.var
 
 ####Data-generating function----
+#SOURCE NOTE: Code is based on code distributed by the paper of Bulteel, Tuerlinckx, Brose, and Ceulemans
+#TITLE:Improved Insight into and Prediction of Network Dynamics by Combining VAR and Dimension Reduction
+#doi:10.1080/00273171.2018.1516540
 computeData.var <-function(nVar,
                           time,
                           error,
@@ -72,6 +75,8 @@ computeData.var <-function(nVar,
         return(NULL)
       }
     }
+    print("Matrices are valid.")
+    
   }
   
   #Generate errors
@@ -84,7 +89,7 @@ computeData.var <-function(nVar,
   
   #withProgress(message = paste0('Simulating ',model), value = 0, {
   for (row in 2:(time + burn)) {
-    simdata[row, ] = phi %*% simdata[(row - 1), ] + U[row, ]
+    simdata[row, ] = simdata[(row - 1), ] %*% phi + U[row, ]
   }
   randomError <- matrix(rnorm(time * nVar, 0, 1), time, nVar)
   #E <- sqrt(error) * randomError
@@ -96,6 +101,23 @@ computeData.var <-function(nVar,
 }
 
 computeData.varest<-computeData.var
+
+output$var_sim_output <- renderUI({
+  tagList(
+    transitionMatrixUI(ns(session)$ns,'phi'),
+    innovationMatrixUI(ns(session)$ns,'inno')
+  )
+})
+
+
+output$var_mod_output <- renderUI({
+})
+
+prev_mod <<- reactiveVal(NULL)
+prev_mod2 <<- reactiveVal(NULL)
+
+modelDataParams.var<-function(model){
+}
 
 ####Model fit function----
 modelData.varest <- function(model, dataset, lagNum, index_vars = NULL,...) {

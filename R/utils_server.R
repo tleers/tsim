@@ -10,8 +10,10 @@
 #   "golem",
 #   "mvtnorm"
 # )
-AR_METHOD <<- 'ols'
+EST_METHOD <<- 'ols'
 options(warn = -1)
+
+require(matrixcalc)
 
 # new.packages <-
 #   list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
@@ -159,11 +161,6 @@ extractResiduals <- function(model) {
   UseMethod('extractResiduals', model)
 }
 
-#extract loading matrix for PCA-based methods
-extractLM <- function(model) {
-  UseMethod('extractLM', model)
-}
-
 #return FALSE if stationarity violated
 # alternative is the augmented dickey-fuller test!
 # alternative is autocorrelation
@@ -198,7 +195,6 @@ validate_phi <- function(phi) {
 }
 
 validate_inno <- function(inno) {
-  require(matrixcalc)
   if (!is.positive.definite(inno)) {
     warning("Innovation matrix is not positive definite.")
     return(FALSE)
@@ -207,14 +203,12 @@ validate_inno <- function(inno) {
 }
 
 fix_inno <- function(inno) {
-  require(matrixcalc)
   if (!is.positive.definite(abs(inno))) {
     warning(
       "Innovation matrix is not positive definite. Nearest positive definite matrix has been estimated and used."
     )
     inno <- matrix(Matrix::nearPD((inno))$mat, ncol(inno))
     print('Nearest innovation matrix:')
-    print(inno)
   }
 }
 
@@ -234,61 +228,8 @@ compareAccuracy <- function(data,
   return(list(m1_acc, m2_acc))
 }
 
-compareCV <- function(data, nVar, nTime, lagNum, index_vars) {
-  dataSt <- standardize.popsd(data)
-  K <- 3
-  CV <- as.numeric(factor(sort(rank(1:nTime %% 10))))
-  ### CV loop
-  indLastElFold <- tapply(seq_along(CV), CV, max)
-  indFirstElFold <- c(1, indLastElFold[-K])
-  mse_ar <<- matrix(0, K, 1)
-  mse_var <<- matrix(0, K, 1)
-  withProgress(message = 'Comparing blocked CV performance', value = 0, {
-    for (k in 1:K) {
-      # Prepare test data
-      DataTest <- dataSt[indFirstElFold[k]:indLastElFold[k],]
-      XTest <-
-        DataTest[-nrow(DataTest),]
-      YTest <- DataTest[-1,]
-      # Prepare training data
-      DataTrain <-
-        dataSt[-(indFirstElFold[k]:(indLastElFold[k] - 1)),]
-      
-      res <- modelData('ar',
-                       DataTrain,
-                       lagNum,
-                       index_vars)$resid
-      
-      #make sure to remove NA's since first and last observation usually not predicted or taken into account
-      res <- na.omit(as.data.frame(res))
-      #melt dem bois
-      res2 <- reshape2::melt(res, na.rm = TRUE)
-      res2_y <- rep(1:length(res[, 1]), nVar)
-      res2 <- cbind(res2, res2_y)
-      mse_ar[k] <- sum(res ^ 2) / length(as.vector(res))
-      res <- residuals(modelData('var',
-                                 DataTrain,
-                                 lagNum,
-                                 index_vars))
-      res <- na.omit(as.data.frame(res))
-      res2 <- reshape2::melt(res, na.rm = TRUE)
-      res2_y <- rep(1:length(res[, 1]), nVar)
-      res2 <- cbind(res2, res2_y)
-      mse_var[k] <- sum(res ^ 2) / length(as.vector(res))
-      #incProgress(1 / K, detail = paste("Block ", k))
-    }
-    MSE_AR <- sum(mse_ar) / K
-    MSE_VAR <- sum(mse_var) / K
-  })
-  if (MSE_AR > MSE_VAR) {
-    return("VAR")
-  } else {
-    return("AR")
-  }
-}
-
 computeCV <- function(
-  data,
+  dat,
   model = 'ar',
   K = 5,
   index_vars,
@@ -298,7 +239,7 @@ computeCV <- function(
 ) {
   
   CV <- as.numeric(factor(sort(rank(1:(
-    nrow(data) - 1
+    nrow(dat) - 1
   ) %% K))))
   ### CV loop
   indLastElFold <- tapply(seq_along(CV), CV, max)
@@ -309,13 +250,13 @@ computeCV <- function(
   #withProgress(message = 'Computing blocked CV', value = 0, {
   for (k in 1:K) {
     # Prepare test data
-    DataTest <- data[indFirstElFold[k]:indLastElFold[k],]
+    DataTest <- dat[indFirstElFold[k]:indLastElFold[k],]
     XTest <-
       DataTest[-nrow(DataTest),]
     YTest <- DataTest[-1,]
     # Prepare training data
     DataTrain <-
-      data[-(indFirstElFold[k]:(indLastElFold[k] - 1)),]
+      dat[-(indFirstElFold[k]:(indLastElFold[k] - 1)),]
     colnames(DataTrain) <- 1:ncol(DataTrain)
     
     #model1
@@ -376,7 +317,9 @@ computeTP <- function(nVar,
                       index_vars,
                       lagNum = 1,
                       error_metric = 'mse',
-                      model_params) {
+                      model_params,
+                      compMod1,
+                      compMod2) {
   #print(paste0('timepoint: ',time))
   #simulate data from the assumed data generating model
   data <- computeData(nVar,
@@ -386,10 +329,9 @@ computeTP <- function(nVar,
                       val = FALSE,
                       burn = 1000,
                       model_params)
-  
-  #data <- standardize.popsd(data)
+
   CV <- as.numeric(factor(sort(rank(1:(
-    nrow(data) - 1
+    nrow(data)
   ) %% K))))
   ### CV loop
   indLastElFold <- tapply(seq_along(CV), CV, max)
@@ -410,12 +352,16 @@ computeTP <- function(nVar,
     DataTrain <-
       data[-(indFirstElFold[k]:(indLastElFold[k] - 1)),]
     colnames(DataTrain) <- 1:ncol(DataTrain)
-    
+    DataTrain <- standardize.popsd(DataTrain)
+    DataTest <- standardize.popsd(DataTest)
+    # print(nrow(DataTrain))
+    # print(nrow(DataTest))
     #model1
     mod <- modelData(model1,
                      DataTrain,
                      lagNum,
-                     index_vars)
+                     index_vars,
+                     compMod1)
     pred <- altpredict(mod, XTest)
     error <- computeError(mod, pred, XTest)
     
@@ -426,7 +372,8 @@ computeTP <- function(nVar,
     mod <- modelData(model2,
                      DataTrain,
                      lagNum,
-                     index_vars)
+                     index_vars,
+                     compMod2)
     pred <- altpredict(mod, XTest)
     error <- computeError(mod, pred, XTest)
     
@@ -450,9 +397,20 @@ searchTP <- function(nVar,
                      max_iter = 25,
                      stepsize_init = 10,
                      stepsize_scaler = .1,
+                     threshold,
                      index_vars,
                      error_metric,
-                     model_params) {
+                     model_params,
+                     compMod1,
+                     compMod2) {
+  
+  if(nTime/K < 4){
+    showNotification(paste0('Time point search unsuccessful: Increase sample size or decrease number of folds.'),
+                     type='error',
+                     duration=5)
+    warning("Sample size too low in comparison to fold number.")
+    return(NULL)
+  }
   sig <- 1
   sampling_k <- 1
   
@@ -484,12 +442,13 @@ searchTP <- function(nVar,
   backup_counter <- 0
   mod1_best <- 0
   mod2_best <- 0
+  FAILURE <<- FALSE
   withProgress(message = 'Calculating recommended number of time points', value = 0, {
     #stop searching if we reach max iterations or if we reach a consensus of 10
-    while (counter < max_iter && found2 == FALSE) {
+    while (counter < max_iter && found2 == FALSE && !FAILURE) {
       #stop searching if we find a point at which model1 is better than model2 or vice versa, depending on mod value
       while (found == FALSE &&
-             error == FALSE && counter < max_iter) {
+             error == FALSE && counter < max_iter && !FAILURE) {
         info <- NULL
         #basically we want at least 2 tps per fold. otherwise we get dirty ol' crashes
         if (t <= 15) {
@@ -510,7 +469,9 @@ searchTP <- function(nVar,
               index_vars,
               lagNum,
               error_metric,
-              model_params
+              model_params,
+              compMod1,
+              compMod2
             )
           } else {
             info <- info +
@@ -525,7 +486,9 @@ searchTP <- function(nVar,
                 index_vars,
                 lagNum,
                 error_metric,
-                model_params
+                model_params,
+                compMod1,
+                compMod2
               )
           }
         }
@@ -542,6 +505,13 @@ searchTP <- function(nVar,
         print(model2)
         print(MSE_MOD2)
         print(abs(SE_MOD2))
+        
+        if(is.na(MSE_MOD1)|is.na(MSE_MOD2)|is.na(SE_MOD2) | is.nan(MSE_MOD1) | is.nan(MSE_MOD2)){
+          warning('Error during computation')
+          showNotification('An error has occurred during computation. This may be due to collinearity.',type='error')
+          FAILURE <<- TRUE
+          break
+        }
         
         mse_df[[dfc]] <-
           list(t,
@@ -572,7 +542,7 @@ searchTP <- function(nVar,
               backup_counter <- 0
             }
             
-            if (backup_counter >= 20 && mod == 1) {
+            if (backup_counter >= threshold && mod == 1) {
               found2 = TRUE
             } else {
               mod <- mod
@@ -613,6 +583,9 @@ searchTP <- function(nVar,
       # }
       
       found = FALSE
+      if(FAILURE){
+        break
+      }
     }
   })
   
@@ -625,19 +598,24 @@ searchTP <- function(nVar,
     showNotification(paste0('No outcome in ',max_iter,' iterations. 
                             Try increasing the maximum number of iterations or the stepsize.'),
                      type='error',
-                     duration=NULL)
+                     duration=30)
   } else if (found == FALSE && !is.null(backup)) {
     t <- backup + stepsize
     showNotification(paste0('Recommended number of time points is ',backup,' in ',max_iter,' iterations.'),
                      type='message',
-                     duration=5)
+                     duration=15)
   }
+  print(FAILURE)
+  if(!FAILURE){
   return(list(
     backup,
     convertmsedf(mse_df, K, model1, model2),
     mod1_best,
     mod2_best
   ))
+  } else {
+    return(NULL)
+  }
 }
 
 
