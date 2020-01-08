@@ -301,7 +301,7 @@ loadingMatrixUI <- function(id, label="loading_matrix"){
         } else {
           input$nVar
         },
-        min = 1,
+        min = 2,
         max = if(!is.null(filedata_updated()) && (input$select_simulation_parameter_origin != 'Manual')){
           ncol(filedata_updated())
         } else {

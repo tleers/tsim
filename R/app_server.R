@@ -712,9 +712,10 @@ app_server <- function(input, output, session) {
   })
   
   observeEvent({
+    #data_simulation_parameter_origin()
     input$select_simulation_parameter_origin
   },{
-    if(input$select_simulation_parameter_origin!='Manual'){
+    if(input$select_simulation_parameter_origin=='Active dataset'){
       updateNumericInput(session,
                          'nVar',
                          label="Number of variables:",
@@ -729,7 +730,7 @@ app_server <- function(input, output, session) {
                            label="Number of variables:",
                            value=numVarsData(),
                            max=150,
-                           min=1
+                           min=2
         )
       }
     
@@ -978,6 +979,7 @@ app_server <- function(input, output, session) {
                        scale_x_continuous(name="Time points") +
                        labs(fill="Variable") + 
                        scale_y_continuous(name='Value') +
+                       #scale_fill_discrete(name = "Variable")
                        theme_classic() 
                      
                      ggplotly(p) %>% 
@@ -1319,6 +1321,7 @@ app_server <- function(input, output, session) {
   )
   
   observeEvent(input$submit1, {
+    if(typeof(currentModelParameters(input$selection1))=="list"){
     r$data <<-
       do.call(computeData,list(input$nVar,
                                input$nTime,
@@ -1329,7 +1332,7 @@ app_server <- function(input, output, session) {
                                currentModelParameters(input$selection1)#model-specific parameters
       )
       )
-
+    }
     
     if(!is.null(r$data)){
       if(any(colMeans(matrix(r$data,ncol=input$nVar))==0)){
@@ -1498,7 +1501,7 @@ app_server <- function(input, output, session) {
             plotlyOutput("mse_fold_plot")
           ),
           boxPlus(
-            title = paste0('Density plot of average ',toupper(error_metric),' per model across time points'),
+            title = paste0('Density ridge plot of average ',toupper(error_metric),' per model across time points'),
             closable=TRUE,
             width=NULL,
             collapsible=TRUE,
@@ -1558,9 +1561,9 @@ app_server <- function(input, output, session) {
             scale_colour_manual(values = c("Blue", "Red")) +
             scale_y_continuous(name=toupper(error_metric)) +
             scale_x_continuous(name="Time points") +
-            
-            theme_classic() +
-            labs(fill="(Model,Fold)")
+            labs(fill="(Model,Fold)")+
+            scale_fill_discrete(name = "(Model,Fold)")
+            theme_classic() 
           
           ggplotly(p) %>% 
             layout(autosize=TRUE)

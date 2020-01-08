@@ -33,9 +33,9 @@ app_ui <- function(request) {
       uiOutput('tp_tab_script'),
       
       rightsidebar=rightSidebar(
-        box(width=2,
-            actionButton("browser", "debug")
-        ),
+        # box(width=2,
+        #     actionButton("browser", "debug")
+        # ),
         rightSidebarTabContent(
           id=1,
           title="",
@@ -84,10 +84,10 @@ app_ui <- function(request) {
                                   'Relative Standard Deviation (rSTD)'='rstd'),
                         selected='mse'),
             numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
-            numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=100),
+            numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=50000,value=2000),
             uiOutput('select_stepsize_init_element'),
             #numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
-            numericInput(inputId='threshold',label='Threshold',min=1,max=5000,value=30),
+            numericInput(inputId='threshold',label='Threshold',min=1,max=5000,value=50),
             uiOutput('num_searchtp_sim')
           )
         ),

@@ -329,6 +329,7 @@ computeTP <- function(nVar,
                       burn = 1000,
                       model_params)
 
+
   CV <- as.numeric(factor(sort(rank(1:(
     nrow(data)
   ) %% K))))
@@ -402,7 +403,7 @@ searchTP <- function(nVar,
                      model_params,
                      compMod1,
                      compMod2) {
-  
+  stepsize_scaler <- 1
   if(nTime/K < 4){
     showNotification(paste0('Time point search unsuccessful: Increase sample size or decrease number of folds.'),
                      type='error',
@@ -422,8 +423,8 @@ searchTP <- function(nVar,
   t <- nTime
   
   #used as an indicator of whether tp was found
-  found = FALSE
-  counter = 0
+  found <- FALSE
+  counter <- 0
   
   #"modifier" for stepsize, helps us with
   mod <- 1
