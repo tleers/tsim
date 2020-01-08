@@ -1,9 +1,5 @@
+ Using the application requires Rstudio, and the installation of several packages. Open run_me_before_startup.R and run this file. This should install all necessary packages. If an error is thrown during installation, please try to install a package manually or update your Rstudio. If there a is pop-up prompting you to restart during installation, press no.
 
-Installing the application requires R Studio, and the installation of several packages. 
-To install the required R packages, please open run_me_before_startup.R and run this file. This should install all necessary packages.
-If an error is thrown during installation, try to install that package manually or update your Rstudio.
-After package installation, the application is best ran in developer mode for full access to debugging output.
-To run the application in developer mode, navigate to the "tsim/dev" folder, and open the "run_dev.R" file in RStudio.
-After running this file, the application should run without any other issues.
-Should any problems still occur, the application is still available at https://tsim.timleers.com for testing.
-Note that the version on the website does not allow for debugging output.
+After package installation, the application can be ran by opening "app.R" and running it in R. To run the application in developer mode, first click on the "tsim.Rproj" file, then navigate to the "tsim/dev" folder, and open the "run_dev.R" file in RStudio.
+
+After running either file, the application should run without any other issues. Should any problems still occur, the application is still available at https://tsim.timleers.com for testing. Note that the version on the website does not allow for debugging output. 
