@@ -86,7 +86,7 @@ app_ui <- function(request) {
             numericInput(inputId='select_k_fold',label='Choose number of folds',min=2,max=20,value=5),
             numericInput(inputId='select_max_iter',label="Choose maximum number of iterations",min=10,max=1000,value=100),
             uiOutput('select_stepsize_init_element'),
-            numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
+            #numericInput(inputId='select_stepsize_scaler',label='Choose stepsize scaler',min=.0001,max=1,value=.8),
             numericInput(inputId='threshold',label='Threshold',min=1,max=5000,value=30),
             uiOutput('num_searchtp_sim')
           )
@@ -312,7 +312,11 @@ app_ui <- function(request) {
                     p(id='sim_anchor','')
                     ),
                     fluidRow(
-                    plotlyOutput('simulated_data_plot')
+                      boxPlus(
+                        collapsible=TRUE,
+                        title='Simulated data',
+                        plotlyOutput('simulated_data_plot')
+                      )
                     )
                     )
                   )

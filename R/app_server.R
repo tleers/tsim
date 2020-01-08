@@ -8,9 +8,9 @@
 #' @import viridis
 
 app_server <- function(input, output, session) {
-  observeEvent(input$browser,{
-    browser()
-  })
+  # observeEvent(input$browser,{
+  #   browser()
+  # })
   models <- dir('models')
   models <- paste0('models/', models)
   for(i in 1:length(models)){
@@ -969,7 +969,6 @@ app_server <- function(input, output, session) {
   
   observeEvent({input$submit1},
                {
-                 if(!is.null(r$data)){
                    output$simulated_data_plot <- renderPlotly({
                      x <- 1:nrow(r$data)
                      colnames(r$data)<-c(paste("V",1:ncol(r$data),sep=""))
@@ -983,9 +982,8 @@ app_server <- function(input, output, session) {
                      
                      ggplotly(p) %>% 
                        layout(autosize=TRUE)
-                 
                    })
-               }
+               
                })
     
     
@@ -1369,7 +1367,11 @@ app_server <- function(input, output, session) {
   })
   
   current_stepsize_scaler_selected<- reactive({
-    input$select_stepsize_scaler
+    if(!is.null){
+      input$select_stepsize_scaler
+    } else {
+      1
+    }
   })
   
   tp_selected_model1 <- reactive({
@@ -1803,7 +1805,7 @@ app_server <- function(input, output, session) {
       
       mod1_cv<-computeCV(mc_data(),
                          model = input$mc_model1,
-                         K=3,
+                         K=5,
                          loaded_dataset_index_variable(),
                          lagNum = 1,
                          error_metric = 'mse',
@@ -1812,7 +1814,7 @@ app_server <- function(input, output, session) {
       
       mod2_cv<-computeCV(mc_data(),
                          model = input$mc_model2,
-                         K=3,
+                         K=5,
                          loaded_dataset_index_variable(),
                          lagNum = 1,
                          error_metric = 'mse',
@@ -1829,7 +1831,7 @@ app_server <- function(input, output, session) {
               input$mc_model2,
               input$mc_model1
             ),
-            paste0('Best model based on APE by blocked cross-validation (',input$mc_model1,': ',round(mod1_cv,2),'; ',input$mc_model2,': ',round(mod2_cv,2),')'),
+            paste0('Best model based on MSE by blocked cross-validation (',input$mc_model1,': ',round(mod1_cv,2),'; ',input$mc_model2,': ',round(mod2_cv,2),')'),
             icon=icon("th")
           )
         )

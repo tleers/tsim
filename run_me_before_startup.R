@@ -1,0 +1,58 @@
+source('package_install.R')
+list.of.packages = c( #-------------------------
+                      # "V8",
+                      # "shinyjs",
+                      "dplyr",
+                      "viridis",
+                      "stringr",
+                      "roxygen2",
+                      "golem",
+                      "mvtnorm",
+                      "ggridges",
+                      "shinythemes",
+                      #"latticeExtra",
+                      #"qgraph",
+                      "shinydashboardPlus",
+                      "Matrix",
+                      "shinyWidgets",
+                      "plotly", 
+                      "dplyr", 
+                      "data.table", 
+                      "lubridate", 
+                      "reshape2",
+                      "DT", 
+                      "knitr", 
+                      "kableExtra",
+                      "datasets",
+                      "ggplot2",
+                      "MASS",
+                      "psych",
+                      "stats",
+                      "shinydashboard",
+                      "reshape2",
+                      "vars",
+                      "xtable",
+                      #"Hmisc",
+                      "reshape",
+                      "rowr",
+                      "grid",
+                      "gridExtra",
+                      "rlist",
+                      "pracma",
+                      "latex2exp",
+                      "dplyr",
+                      "rhandsontable",
+                      "lubridate",
+                      "here",
+                      "devtools",
+                      #"tibble",
+                      #"rintrojs",
+                      "matrixcalc"
+)
+#----------
+install_package_list(list.of.packages,install=TRUE)
+#install.packages('latticeExtra',repos=c("http://R-forge.R-project.org"),dep=TRUE)
+library(devtools)
+install_github("https://github.com/cran/latticeExtra")
+install.packages('qgraph')
+usethis::use_package('qgraph')

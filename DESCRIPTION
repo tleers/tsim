@@ -20,12 +20,9 @@ Imports:
     latex2exp,
     shinyWidgets,
     rlist,
-    rintrojs,
-    tibble,
     rhandsontable,
     dplyr,
     shinythemes,
-    qgraph,
     Matrix,
     data.table,
     lubridate,
@@ -37,7 +34,6 @@ Imports:
     psych,
     stats,
     vars,
-    Hmisc,
     reshape,
     rowr,
     grid,
@@ -47,21 +43,15 @@ Imports:
     xtable,
     here,
     devtools,
-    pool,
-    tsibble,
-    sparsevar,
     ggridges,
     pkgload,
     matrixcalc,
     stringr,
-    VARshrink,
-    mlVAR,
     roxygen2,
     mvtnorm,
-    V8,
     viridis,
-    shinyjs
-RoxygenNote: 6.1.1
+    qgraph
+RoxygenNote: 7.0.2
 Suggests: 
     testthat (>= 2.1.0),
     rmarkdown
