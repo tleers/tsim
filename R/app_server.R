@@ -1562,7 +1562,7 @@ app_server <- function(input, output, session) {
             scale_y_continuous(name=toupper(error_metric)) +
             scale_x_continuous(name="Time points") +
             labs(fill="(Model,Fold)")+
-            scale_fill_discrete(name = "(Model,Fold)")
+            scale_fill_discrete(name = "(Model,Fold)")+
             theme_classic() 
           
           ggplotly(p) %>% 

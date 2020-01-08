@@ -5,6 +5,6 @@ account: timleers
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 1619487
-bundleId: 2714849
+bundleId: 2715038
 url: https://timleers.shinyapps.io/tsim/
-when: 1578504394.91424
+when: 1578510375.05822
