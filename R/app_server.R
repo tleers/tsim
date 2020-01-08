@@ -72,7 +72,7 @@ app_server <- function(input, output, session) {
                #conditionalPanel(condition="is.null(input.input_df)==FALSE",
                #),
                menuSubItem("Load", tabName = "data1"),
-               menuSubItem("Initialize",tabName = "data2")
+               menuSubItem("Pre-processing",tabName = "data2")
       ),
       menuItem("Data Simulation", icon = icon("database"),tabName = "sim"
                
@@ -173,14 +173,6 @@ app_server <- function(input, output, session) {
     UseMethod('computePhi',model)
   }
   
-  computePhi.pcvar <- function(model,sim_params,...) {
-    ncomp<-sim_params$ncomp
-    Phi <- matrix(0, ncomp, ncomp)
-    diag(Phi) <- .5 # The diagonal elements
-    Phi[diag(1, ncomp) == 0] <- .2 # The off-diagonal elements
-    return(Phi)
-  }
-  
   computePhi.ar <- function(model, sim_params, ...) {
     N<-sim_params$nvar
     Phi <- matrix(0, N, N)
@@ -202,9 +194,7 @@ app_server <- function(input, output, session) {
     UseMethod("simParams",model)
   }
   
-  simParams.pcvar <- function(model){
-    return(list(ncomp=input$side_ncomp))
-  }
+
   
   simParams.ar <- function(model){
     return(list(nvar=input$nVar))
@@ -219,8 +209,8 @@ app_server <- function(input, output, session) {
   updated_phi <- reactive({
     if(!is.null(input_df$df) && input$select_simulation_parameter_origin != 'Manual'){
       phi_output <- mod_params()$phi
-      colnames(phi_output) <- colnames(filedata_updated())
-      rownames(phi_output) <- colnames(filedata_updated())
+      colnames(phi_output) <- colnames(filedata_updated())[1:ncol(phi_output)]
+      rownames(phi_output) <- colnames(filedata_updated())[1:nrow(phi_output)]
     } else if(input$select_simulation_parameter_origin == 'Manual'){
         phi_output<-computePhi(input$selection1,simParams(input$selection1))
         colnames(phi_output) <- c(paste("V",1:ncol(phi_output),sep=""))
@@ -253,13 +243,7 @@ app_server <- function(input, output, session) {
     return(Sigma)
   }
   
-  computeSigma.pcvar <- function(model, sim_params, ...) {
-    ncomp<-sim_params$ncomp
-    Sigma <- matrix(0, ncomp, ncomp)
-    diag(Sigma) <- .5
-    Sigma[diag(1, ncomp) == 0] <- .3
-    return(Sigma)
-  }
+
   
   updated_inno <- reactive({
     if(!is.null(input_df$df) && (input$select_simulation_parameter_origin != 'Manual')){
@@ -391,7 +375,7 @@ app_server <- function(input, output, session) {
       prev_table$class <- NULL
       prev_table$df_name <- substr(prev_table$file_name,1,regexpr(".", prev_table$file_name, fixed = T)-1)
       df_view <- read.csv(prev_table$file_path, stringsAsFactors = FALSE,
-               header = input$header,
+               header = input$csv_header,
                sep = input$sep,
                quote = input$quote)
       prev_table$class <- class(df_view)
@@ -574,7 +558,7 @@ app_server <- function(input, output, session) {
       } else {
         3
       },
-      min = 1,
+      min = 2,
       max = 150
     )
   })
@@ -983,6 +967,28 @@ app_server <- function(input, output, session) {
     }
   })
   
+  observeEvent({input$submit1},
+               {
+                 if(!is.null(r$data)){
+                   output$simulated_data_plot <- renderPlotly({
+                     x <- 1:nrow(r$data)
+                     colnames(r$data)<-c(paste("V",1:ncol(r$data),sep=""))
+                     p<-ggplot(reshape::melt(cbind(r$data),id.vars=x),
+                            aes(x=X1,y=value,color=X2)) +
+                       geom_line() + 
+                       scale_x_continuous(name="Time points") +
+                       labs(fill="Variable") + 
+                       scale_y_continuous(name='Value') +
+                       theme_classic() 
+                     
+                     ggplotly(p) %>% 
+                       layout(autosize=TRUE)
+                 
+                   })
+               }
+               })
+    
+    
   observeEvent({input$var_modify
     input$plot_factor
     input$plot_var
@@ -1127,7 +1133,16 @@ app_server <- function(input, output, session) {
   }
   
   tmod <- reactive({
-    tmod<-do.call(modelData,modelDataArgs(input$selection1))
+    tmod<-do.call(
+      modelData,
+      list(
+        input$selection1,
+        filedata_updated(),      
+        selectedLagNum(),
+        loaded_dataset_index_variable(),
+        simParams(input$selection1)
+      )
+    )
     tmod
   })
   
@@ -1146,12 +1161,12 @@ app_server <- function(input, output, session) {
       if(!is.null(id_var()) && !is.null(loaded_dataset_id_value())){
         input_df$df %>% 
           dplyr::filter_at(id_var_number(), all_vars(. == as.integer(loaded_dataset_id_value()))) %>% 
-          dplyr::select(-starts_with(input$select_dataset_id_var)) 
+          dplyr::select(-starts_with(input$select_dataset_id_var)) %>% na.omit()
       } else if (!is.null(id_var()) && is.null(loaded_dataset_id_value())){
         input_df$df %>% 
-          dplyr::select(-starts_with(input$select_dataset_id_var))
+          dplyr::select(-starts_with(input$select_dataset_id_var)) %>% na.omit()
       } else {
-        input_df$df
+        input_df$df %>% na.omit()
       }
     }
   })
@@ -1376,11 +1391,7 @@ app_server <- function(input, output, session) {
                  value=5
     )
   })
-  tpModParams.pcvar <- function(model,...){
-    return(list(
-      ncomp=input$ncomp
-    ))
-  }
+
   
   tpModParams <- function(model,...){
     class(model) <- tolower(model)

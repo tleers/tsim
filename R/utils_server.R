@@ -228,6 +228,8 @@ compareAccuracy <- function(data,
   return(list(m1_acc, m2_acc))
 }
 
+
+#Blocked CV based on code snippet supplied by Kirsten Bulteel.
 computeCV <- function(
   dat,
   model = 'ar',
@@ -258,12 +260,15 @@ computeCV <- function(
     DataTrain <-
       dat[-(indFirstElFold[k]:(indLastElFold[k] - 1)),]
     colnames(DataTrain) <- 1:ncol(DataTrain)
+    DataTrain <- standardize.popsd(DataTrain)
+    DataTest <- standardize.popsd(DataTest)
     
     #model1
     mod <- modelData(model1,
                      DataTrain,
                      lagNum,
-                     index_vars)
+                     index_vars,
+                     NULL)
     pred <- altpredict(mod, XTest)
     error <- computeError(mod, pred, XTest)
     
@@ -300,13 +305,7 @@ prepCompTP.var <- function(model, model_params) {
 }
 
 
-#' Parent function for computing the MSE for a particular model
-#'
-#' \code{computeTP} returns the residuals in matrix-format from a fitted timeseries model.
-#' @param model A fitted ts model, currently ar, arest (from ar.multivariate) and var are supported
-#' @return A matrix of residuals, with columns being the variables.
-#' 
-#' 
+#Blocked CV based on code snippet supplied by Kirsten Bulteel.
 computeTP <- function(nVar,
                       time,
                       error,

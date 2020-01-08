@@ -240,8 +240,8 @@ app_ui <- function(request) {
                       conditionalPanel(condition =  "output.loaded_table_flag == '1' && output.class_df_flag == false ",
                                        box(width = 4, title = "List of Variables",
                                            DT::dataTableOutput("data_tab2_var"),
-                                           conditionalPanel(condition = "output.loaded_table_flag == '1'",
-                                                            uiOutput('dataset_select_index_variable')
+                                           conditionalPanel(condition = "output.loaded_table_flag == '1'"
+                                                            #uiOutput('dataset_select_index_variable')
                                            )
                                            
                                        ),
@@ -308,8 +308,12 @@ app_ui <- function(request) {
                             uiOutput('num_tp_sim'),
                             ####Parameters from model
                             actionButton("submit1", "Submit")
-                    ),
+                    ),fluidRow(
                     p(id='sim_anchor','')
+                    ),
+                    fluidRow(
+                    plotlyOutput('simulated_data_plot')
+                    )
                     )
                   )
         

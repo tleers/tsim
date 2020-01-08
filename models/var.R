@@ -69,11 +69,8 @@ computeData.var <-function(nVar,
     }
     
     if(!validate_inno(inno)){
-      inno<-fix_inno(inno)
-      if(is.null(inno)){
-        warning("Innovation matrix invalid")
-        return(NULL)
-      }
+      warning("Innovation matrix invalid")
+      return(NULL)
     }
     print("Matrices are valid.")
     

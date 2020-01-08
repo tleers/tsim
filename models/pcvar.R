@@ -1,17 +1,6 @@
 #PC-VAR(p) implementation based on Bulteel et al. 2018, modified by Tim Leers
 require(psych)
 
-modelDataArgs.pcvar <- function(model){
-  return(
-    list(
-      input$selection1,
-      filedata_updated(),
-      selectedLagNum(),
-      loaded_dataset_index_variable(),
-      input$side_ncomp)
-  )
-}
-
 #parameters that are estimated based on the model fit to the dataset, and which should be editable for the user
 relevantModelParameters.pcvar<-function(tmod){
   return(list(phi=extractPhi(tmod),
@@ -121,10 +110,36 @@ computeData.pcvar <- function(nVar,
 ####Model fit arguments (SHINY)----
 modelDataParams.pcvar<-function(model){
   if(!is.null(input$ncomp)){
-    return(input$ncomp)
+    return(list(ncomp=input$ncomp))
   } else {
-    return(NULL)
+    return(list(ncomp=NULL))
   }
+}
+
+computePhi.pcvar <- function(model,sim_params,...) {
+  ncomp<-sim_params$ncomp
+  Phi <- matrix(0, ncomp, ncomp)
+  diag(Phi) <- .5 # The diagonal elements
+  Phi[diag(1, ncomp) == 0] <- .2 # The off-diagonal elements
+  return(Phi)
+}
+
+computeSigma.pcvar <- function(model, sim_params, ...) {
+  ncomp<-sim_params$ncomp
+  Sigma <- matrix(0, ncomp, ncomp)
+  diag(Sigma) <- .5
+  Sigma[diag(1, ncomp) == 0] <- .3
+  return(Sigma)
+}
+
+tpModParams.pcvar <- function(model,...){
+  return(list(
+    ncomp=input$ncomp
+  ))
+}
+
+simParams.pcvar <- function(model){
+  return(list(ncomp=input$side_ncomp))
 }
 
 
@@ -201,32 +216,7 @@ computeError.pcvar <- function(model,pred,dat){
 
 
 ###Model prediction function----
-altpredict.pcvar <- function(model,data){
-  pred <- matrix(0,nrow(data),ncol(data))
-  #se <- matrix(0,n.ahead,ncol(data))
-  se <- NULL
-  loading_matrix <- extractLM(model)
-  phi <- extractPhi(model)
-  data <- matrix(unlist(data),ncol=ncol(extractResiduals.pcvar(model)))
-  for (i in 1:ncol(data)){
-    pred[1,] <- data[1,]
-    for (row in 2:nrow(data)) {
-      pred[row, ] = phi %*% (data[row-1,]*t(loading_matrix))
-    }
-  }
-  pred <- pred
-  return(list(pred,se))
-}
-
 # altpredict.pcvar <- function(model,data){
-#   backup <- data
-#   PCA_varimax<-principal(data,
-#                          nfactors=ncol(model$B_rot),
-#                          rotate="varimax")
-#   F_rot<-PCA_varimax$scores
-#   B_rot<-PCA_varimax$loadings
-#   data <- F_rot
-# 
 #   pred <- matrix(0,nrow(data),ncol(data))
 #   #se <- matrix(0,n.ahead,ncol(data))
 #   se <- NULL
@@ -236,12 +226,37 @@ altpredict.pcvar <- function(model,data){
 #   for (i in 1:ncol(data)){
 #     pred[1,] <- data[1,]
 #     for (row in 2:nrow(data)) {
-#       pred[row, ] = phi %*% data[row-1,]
+#       pred[row, ] = phi %*% (data[row-1,]*t(loading_matrix))
 #     }
 #   }
 #   pred <- pred
 #   return(list(pred,se))
 # }
+
+altpredict.pcvar <- function(model,data){
+  backup <- data
+  PCA_varimax<-principal(data,
+                         nfactors=ncol(model$B_rot),
+                         rotate="varimax")
+  F_rot<-PCA_varimax$scores
+  B_rot<-PCA_varimax$loadings
+  data <- F_rot
+
+  pred <- matrix(0,nrow(data),ncol(data))
+  #se <- matrix(0,n.ahead,ncol(data))
+  se <- NULL
+  loading_matrix <- extractLM(model)
+  phi <- extractPhi(model)
+  data <- matrix(unlist(data),ncol=ncol(extractResiduals.pcvar(model)))
+  for (i in 1:ncol(data)){
+    pred[1,] <- data[1,]
+    for (row in 2:nrow(data)) {
+      pred[row, ] = phi %*% data[row-1,]
+    }
+  }
+  pred <- pred
+  return(list(pred,se))
+}
 
 # altpredict.pcvar <- function(model,data){
 #   ncomp<-nrow(B_rot)
@@ -275,25 +290,19 @@ loadingMatrixUI <- function(id, label="loading_matrix"){
     status="success",
     title="Loading Matrix",
     rHandsontableOutput(label),
-    # fileInput(
-    #   'lmfile',
-    #   'Upload Loading matrix',
-    #   multiple = FALSE,
-    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-    # ),
     sidebar_width = 25,
     sidebar_start_open = TRUE,
     sidebar_content = tagList(
       numericInput(
         'side_ncomp',
         "Number of components",
-        if(!is.null(filedata_updated())){
+        if(!is.null(filedata_updated()) && (input$select_simulation_parameter_origin != 'Manual')){
           ncol(filedata_updated())
         } else {
           input$nVar
         },
         min = 1,
-        max = if(!is.null(filedata_updated())){
+        max = if(!is.null(filedata_updated()) && (input$select_simulation_parameter_origin != 'Manual')){
           ncol(filedata_updated())
         } else {
           input$nVar
@@ -304,74 +313,6 @@ loadingMatrixUI <- function(id, label="loading_matrix"){
   )
 }
 
-transitionMatrixPCVARUI <- function(id, label="transition_matrix_pcvar"){
-  boxPlus(
-    enable_sidebar=TRUE,
-    solid_header=TRUE,
-    collapsible=TRUE,
-    status="success",
-    title='Transition Matrix PC-VAR',
-    rHandsontableOutput("phi_pcvar"),
-    # fileInput(
-    #   'phifile',
-    #   'Upload Phi matrix',
-    #   multiple = FALSE,
-    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-    # ),
-    sidebar_width = 25,
-    sidebar_start_open = FALSE,
-    sidebar_content = tagList(
-      downloadLink("downloadPhiPCVARDataset", "Download Phi Matrix")
-      
-      # numericInput(
-      #   "nDiagPhi",
-      #   "Diagonal coefficients:",
-      #   .1,
-      #   min = 0.1,
-      #   max = 1,
-      #   step = 0.1
-      # )
-    )
-  )
-}
-
-innovationMatrixPCVARUI <- function(id, label="innovation_matrix"){
-  boxPlus(
-    enable_sidebar=TRUE,
-    solidheader=TRUE,
-    collapsible=TRUE,
-    status="success",
-    title="Innovation Matrix",
-    rHandsontableOutput("inno"),
-    # fileInput(
-    #   'innofile',
-    #   'Upload Innovation matrix',
-    #   multiple = FALSE,
-    #   accept = c('text/csv', 'text/comma-separated-values,text/plain', '.csv')
-    # ),
-    sidebar_width = 25,
-    sidebar_start_open = FALSE,
-    sidebar_content = tagList(
-      downloadLink("downloadInnoDataset", "Download Innovation Matrix")
-      # numericInput(
-      #   "nInnoVar",
-      #   "Diagonal coefficients",
-      #   .01,
-      #   min = 0.01,
-      #   max = 10,
-      #   step = 0.1
-      # ),
-      # numericInput(
-      #   "nInnoCovar",
-      #   "Off-diagonal coefficients",
-      #   .01,
-      #   min = 0.01,
-      #   max = 10,
-      #   step = 0.1
-      # )
-    )
-  )
-}
 
 #DYNAMIC UI: simulation----
 output$pcvar_sim_output <- renderUI({
